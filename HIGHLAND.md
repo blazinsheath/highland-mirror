@@ -1,91 +1,56 @@
-# Slipstream Highland development
+# Slipstream Highland
 
-## Starting point
+Fork of cfraz89/carjack (Slipstream 0.3.0), for a 2027 CFMOTO U10 Pro Highland and Samsung Galaxy S25 Plus.
+The owner confirmed that the Highland baseline APK connects and displays apps on the CFMOTO.
+Upstream sources, MIT/Apache-2.0 licenses, and the original main branch remain available.
+The Android application ID is io.github.blazinsheath.slipstream.highland.
 
-- Upstream: https://github.com/cfraz89/carjack
-- Baseline: `slipstream-v0.3.0`, commit `7415945d6ddba5867f7481a87df7e26d0ab05ca0`.
-- Intended GitHub copy: `blazinsheath/slipstream-highland`.
-- Development branch: `highland-dev`; keep upstream `main` as a reference.
-- Target: 2027 CFMOTO U10 Pro Highland, Samsung Galaxy S25 Plus.
-- Installed application ID: `io.github.blazinsheath.slipstream.highland`.
-- Installed app name: **Slipstream Highland**; launcher shortcut: **Highland Launcher**.
+## Version 0.3.0-highland.2: CarPlay speaker audio
 
-The upstream download has displayed apps on this Highland and accepted touchscreen playback
-controls. During that session, music played on the phone and the Highland refused the Bluetooth
-audio connection. Ending the Slipstream session restored Bluetooth speaker audio. This copy
-now compiles successfully; its behavior on the devices still needs testing.
+- Claims the CarPlay MainAudio resource in addition to the working screen resource.
+- Opens an advertised main media output, preferring stereo PCM at 48 kHz or 44.1 kHz;
+  accepts advertised AAC music formats through the existing catplay encoder when needed.
+- Uses Shizuku's shell process to capture phone output (REMOTE_SUBMIX). No microphone or
+  audio files are used. PCM is forwarded through JNI to the encrypted CarPlay RTP stream.
+- Starts capture only after audio SETUP and RECORD succeed, and closes capture when the session
+  ends. A session token prevents an old disconnect from stopping a new session's capture.
+- Adds Settings > Audio: Highland speakers (default), Phone speakers (audio forwarding off),
+  or Speaker test tone (a quiet two-second 440 Hz tone on the next connection).
+- Retains the video-only path if the head unit does not advertise a supported audio format.
+- Calls, the vehicle microphone, and genuine Android Auto projection are not implemented.
 
-## What this first change does
+Build and native tests can verify compilation, advertised format selection and PCM handling.
+Playback through the physical Highland speakers still requires the owner's device test.
+Protected media and app/firmware capture policies may prevent some sources from being forwarded.
+The REMOTE_SUBMIX approach follows Android's framework API and the approach documented by scrcpy:
+https://github.com/Genymobile/scrcpy/blob/master/doc/audio.md
 
-The full upstream project and licenses are retained. The generic Android app gets an independent
-application ID, provider authorities, launcher task, and signing-key location so it can coexist
-with the original download. Kotlin/JNI class namespaces remain unchanged to preserve the native
-connection and Shizuku component bindings. Cargo builds use the checked-in lockfile.
+## Install and test
 
-No audio-forwarding implementation is included yet. This baseline is for confirming that our
-own build preserves the working picture and touch connection before adding an audio stream.
+1. Install the new APK. These development APKs use runner-generated debug keys; if Android says
+   the update conflicts with the installed package, uninstall the earlier Highland copy first.
+   Uninstalling clears that copy's settings. The original upstream Slipstream can stay installed.
+2. Start Shizuku and authorize Slipstream Highland. Restart Shizuku after replacing the APK
+   so the updated helper (version 44) is loaded.
+3. In Highland settings choose Audio > Highland speakers. End any other Slipstream session.
+4. While parked, connect as before with Bluetooth and Wi-Fi enabled and select CarPlay on the
+   CFMOTO. Play music, then adjust the Highland's media volume while it is playing.
+5. If silent, select Audio > Speaker test tone, end the session, and reconnect. A short quiet
+   tone should play on the vehicle. Switch back to Highland speakers and reconnect for music.
+6. If the tone works but music does not, use Send logs after trying the music app. If the tone
+   is also silent, Send logs captures the advertised formats and audio setup error for diagnosis.
+7. Confirm that ending the session restores normal phone/Bluetooth playback and that reconnecting
+   starts a fresh audio stream. Settings changes take effect on the next session.
 
-## Build with GitHub Actions
+## Build
 
-After the fork exists, push this branch. The **Build Slipstream Highland** workflow builds using
-upstream's containerized JDK/Android SDK/NDK/Rust toolchain and uploads a debug-signed APK with
-its checksum. The workflow checks the installed package ID and APK signature before upload.
-No signing secrets or Sentry credentials are needed for this development build.
+The highland-dev branch's Build Slipstream Highland workflow builds the arm64 debug APK with
+upstream's containerized JDK/SDK/NDK/Rust toolchain. It also runs native tests, verifies package
+identity and signature, and uploads the APK plus its SHA-256 checksum. The source lockfile pins
+catplay revision 2615e14b69230d04205e8de126b6d64346787cc0.
 
-In GitHub, open **Actions**, enable workflows for the fork if prompted, select the workflow,
-then select **Run workflow** on `highland-dev` if a push has not already started it. Download
-the `Slipstream-Highland-debug` artifact after a successful run and extract its APK.
+Development releases are published from the verified workflow artifact using a temporary GitHub
+Actions publishing job, then that job's workflow file is removed. Never commit private signing
+keys. Persistent release signing uses HIGHLAND_KEYS containing release.jks and keystore.pass.
 
-The first workflow run passed on November 15, 2026:
-https://github.com/blazinsheath/slipstream-highland/actions/runs/43768504623
-
-It built commit `4276b665501fefa5c7efed30ad09500841aaf215` and verified the installed package ID
-and APK signature. The `Slipstream-Highland-debug` artifact contains the baseline APK and its
-SHA-256 checksum. A successful device test is still required before calling the connection
-behavior verified; this build does not add speaker audio.
-
-Debug signing is for initial testing. Fresh GitHub runners may generate different debug keys,
-so later APKs may require uninstalling the earlier development copy. Before regular updates,
-configure a persistent private signing key; never commit it or its passwords. Release signing
-uses `HIGHLAND_KEYS` or `~/.config/slipstream-highland` and expects `release.jks` plus
-`keystore.pass`. The release helper expects certificate subject `CN=Slipstream Highland`.
-
-## Baseline device test
-
-1. Leave the original Slipstream installed as a fallback, but end its session before opening
-   Highland. Only one of the two apps should be running a session.
-2. Install the Highland APK, start Shizuku, and grant the Highland copy Shizuku access separately.
-3. Start a session while parked, with Bluetooth and Wi-Fi enabled. Let the app join the head
-   unit's network; choose CarPlay on the Highland when requested.
-4. Confirm the picture, touchscreen controls, and clean session end. Expect the existing audio
-   limitation in this baseline.
-
-## Audio milestones
-
-1. **CarPlay speaker test:** add an opt-in, short, quiet test tone over the existing CarPlay
-   session. Negotiate a format the Highland advertises and request the MainAudio resource.
-   Keep the existing video path usable when the audio experiment is disabled or fails.
-2. **Phone media:** capture supported Android playback, send it to the negotiated audio stream,
-   and stop both capture and transmission cleanly on disconnect. Test the actual music apps;
-   Android playback-capture policies may prevent capture from some sources.
-3. **Navigation and reconnects:** test navigation prompts, volume, disconnect recovery,
-   screen-off behavior, and restoration of normal Bluetooth audio after ending the session.
-4. **Calls/microphone:** investigate separately; this is not implemented by basic media capture.
-5. **Android Auto:** evaluate a genuine Android Auto receiver bridge separately from app
-   projection. This fork currently projects Android apps through CarPlay.
-
-Source entry points:
-
-- `carjack-android/src/session.rs`: Android's native session and video startup.
-- `libcarjack/src/airplay.rs`: screen-resource ownership, video stream, and accessory commands.
-- `carjack-android/app/src-generic/.../DisplayService.kt`: privileged display/control helper.
-- The pinned `cfraz89/catplay` revision in `Cargo.lock` is
-  `2615e14b69230d04205e8de126b6d64346787cc0`. Its `AirPlayTransmitter::setup_audio` already
-  accepts an audio recorder and exposes the advertised audio formats, so inspect and reuse
-  that API before changing the underlying library.
-
-## Attribution
-
-Original carjack / Slipstream copyright and MIT/Apache-2.0 license files remain intact. This
-is a development derivative, not an official CFMOTO, Samsung, Apple, or upstream release.
-Dependencies and bundled assets retain their respective licenses.
+This is a development derivative, not an official CFMOTO, Samsung, Apple, or upstream release.

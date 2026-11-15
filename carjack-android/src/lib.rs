@@ -3,6 +3,7 @@
 //! `io.github.cfraz89.slipstream.Native`.
 
 mod logcat;
+mod audio;
 mod report;
 pub mod session;
 
@@ -111,6 +112,14 @@ impl Platform for JavaPlatform {
         self.call("requestKeyframe", "()V", &[]);
     }
 
+    fn start_audio(&self, config: libcarjack::audio::AudioConfig) {
+        self.call("startAudio", "(II)V", &[
+            JValue::Int(config.sample_rate as jint), JValue::Int(config.channels as jint),
+        ]);
+    }
+
+    fn stop_audio(&self) { self.call("stopAudio", "()V", &[]); }
+
     fn touch(&self, event: &TouchEvent) {
         let action = match event.event_type {
             TouchEventType::Down => 0,
@@ -178,6 +187,7 @@ pub extern "system" fn Java_io_github_cfraz89_slipstream_Native_startSession(
     name: JString,
     bluetooth_address: JString,
     codec: jint,
+    audio_enabled: jboolean,
 ) -> jlong {
     static NEXT: AtomicI64 = AtomicI64::new(1);
     // SAFETY: the app hands over a socket fd it no longer uses.
@@ -198,6 +208,7 @@ pub extern "system" fn Java_io_github_cfraz89_slipstream_Native_startSession(
             2 => Some(VideoCodec::Hevc),
             _ => None,
         },
+        audio_enabled: audio_enabled != 0,
     };
 
     let handle = NEXT.fetch_add(1, Ordering::Relaxed);
@@ -281,4 +292,18 @@ pub extern "system" fn Java_io_github_cfraz89_slipstream_Native_pushFrame(
     // SAFETY: a direct buffer of `capacity` bytes that the encoder keeps until this returns.
     let data = unsafe { std::slice::from_raw_parts(ptr.add(offset), size) };
     ctl.push_frame(data, keyframe != 0, codec_config != 0);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_cfraz89_slipstream_Native_pushAudio(
+    env: JNIEnv, _class: JClass, handle: jlong, buffer: JByteBuffer, size: jint,
+) {
+    let Some(ctl) = session(handle) else { return };
+    let (Ok(ptr), Ok(capacity)) = (env.get_direct_buffer_address(&buffer),
+        env.get_direct_buffer_capacity(&buffer)) else { return };
+    // Bound allocations to 100ms stereo at 48kHz and reject incomplete 16-bit samples.
+    if size <= 0 || size > 19200 || size % 2 != 0 || size as usize > capacity { return; }
+    // SAFETY: the caller retains this direct buffer unchanged until this method returns.
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, size as usize) };
+    ctl.audio.push(bytes);
 }

@@ -298,6 +298,7 @@ class SettingsActivity : ComponentActivity() {
         val context = this
         SectionCard(MaterialTheme.colorScheme.surfaceContainer) {
             HeadUnitRow { revision++ }
+            HighlandAudioRow { revision++ }
             OnConnectRow()
 
             ListRow(Leading.Glyph(R.drawable.ic_sl_home), "Preview the launcher",

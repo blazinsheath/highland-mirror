@@ -36,6 +36,10 @@ import java.time.Duration
 object Variant {
     private const val TAG = "carjack"
 
+    // Highland's Shizuku capture belongs to the generic phone build.
+    fun openAudio(token: Long, sampleRate: Int, channels: Int): android.os.ParcelFileDescriptor? = null
+    fun closeAudio(token: Long) {}
+
     /** Runtime permissions granted to ourselves, since nobody is there to answer a prompt. */
     private val RUNTIME_PERMISSIONS = arrayOf(
         Manifest.permission.BLUETOOTH_CONNECT,

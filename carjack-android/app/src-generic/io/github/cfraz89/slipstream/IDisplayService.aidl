@@ -87,6 +87,11 @@ interface IDisplayService {
      */
     void bringOver(String component) = 28;
 
+    /** Live signed 16-bit interleaved phone playback, through the shell's REMOTE_SUBMIX. */
+    ParcelFileDescriptor openAudio(long token, int sampleRate, int channels) = 29;
+
+    void closeAudio(long token) = 30;
+
     /** Shizuku's teardown call. */
     void destroy() = 16777114;
 }

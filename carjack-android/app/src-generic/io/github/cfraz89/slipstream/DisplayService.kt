@@ -133,6 +133,12 @@ class DisplayService(private val context: Context?) : IDisplayService.Stub() {
     private var awake: StayAwake? = null
     private var fingers = Fingers()
     private var systemLog: Process? = null
+    private val playback = PlaybackCapture(context)
+
+    override fun openAudio(token: Long, sampleRate: Int, channels: Int): ParcelFileDescriptor? =
+        playback.start(token, sampleRate, channels)
+
+    override fun closeAudio(token: Long) = playback.stop(token)
 
     init {
         startSystemLog()
@@ -548,6 +554,7 @@ class DisplayService(private val context: Context?) : IDisplayService.Stub() {
     }
 
     override fun destroy() {
+        playback.stop()
         release()
         systemLog?.destroy()
         System.exit(0)

@@ -27,6 +27,8 @@ pub trait Platform: Send + Sync + 'static {
     fn join_wifi(&self, creds: &WifiCredentials);
     /// Start encoding at the accessory's size, feeding [`SessionCtl::push_frame`].
     fn start_video(&self, video: &VideoConfig);
+    fn start_audio(&self, config: libcarjack::audio::AudioConfig);
+    fn stop_audio(&self);
     fn request_keyframe(&self);
     fn touch(&self, event: &TouchEvent);
     /// A key from the accessory's switchgear, as an Android key code going down or up.
@@ -64,6 +66,7 @@ struct FrameSink {
 pub struct SessionCtl {
     wifi: Mutex<Option<oneshot::Sender<Result<JoinedWifi, String>>>>,
     video: Mutex<Option<FrameSink>>,
+    pub audio: Arc<crate::audio::PlaybackAudio>,
     pub cancel: CancellationToken,
 }
 
@@ -192,6 +195,7 @@ pub struct SessionParams {
     pub bluetooth_id: String,
     /// Overrides what the accessory's declaration implies.
     pub codec: Option<VideoCodec>,
+    pub audio_enabled: bool,
 }
 
 /// Run a session to its end. `iap` is the app's end of the RFCOMM relay.
@@ -343,7 +347,22 @@ pub async fn run(
         }
     }));
 
-    let stream = libcarjack::airplay::run_video_stream(
+    let audio = if params.audio_enabled {
+        conn.media_audio_config().map(|config| {
+            let ready_platform = platform.clone();
+            libcarjack::audio::AudioOutput {
+                config,
+                recorder: Box::new(crate::audio::PlaybackRecorder {
+                    audio: ctl.audio.clone(), platform: platform.clone(),
+                }),
+                ready: Box::new(move || ready_platform.start_audio(config)),
+            }
+        })
+    } else { None };
+    if params.audio_enabled && audio.is_none() {
+        tracing::warn!("Accessory did not advertise a supported media playback format");
+    }
+    let stream = libcarjack::airplay::run_media_stream(
         conn,
         codec,
         video_rx,
@@ -351,6 +370,7 @@ pub async fn run(
         Some(key_tx),
         keyframe_tx,
         handover,
+        audio,
     );
     tokio::pin!(stream);
     let mut carplay_done = false;

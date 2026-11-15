@@ -83,6 +83,13 @@ pub struct AirPlayConnection {
     pub hevc_expected: bool,
 }
 
+impl AirPlayConnection {
+    pub fn media_audio_config(&self) -> Option<crate::audio::AudioConfig> {
+        tracing::info!(formats = ?self.tx.info_cached().audio_formats, "Accessory audio formats");
+        crate::audio::media_config(self.tx.info_cached())
+    }
+}
+
 /// HomeKit pairings for the whole process, so an accessory that has met us before can take
 /// `/pair-verify` against stored keys instead of a full `/pair-setup`. Left unset (tests) each
 /// connection gets a throwaway identity.
@@ -227,11 +234,26 @@ fn panel_view(
 pub async fn run_video_stream(
     conn: AirPlayConnection,
     codec: VideoCodec,
+    video_rx: mpsc::Receiver<EncodedFrame>,
+    touch_tx: mpsc::Sender<TouchEvent>,
+    key_tx: Option<mpsc::Sender<crate::hid::KeyEvent>>,
+    keyframe_tx: mpsc::Sender<()>,
+    handover: CancellationToken,
+) -> Result<()> {
+    run_media_stream(conn, codec, video_rx, touch_tx, key_tx, keyframe_tx, handover, None).await
+}
+
+/// The existing video path plus optional media audio; Linux callers remain video-only.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_media_stream(
+    conn: AirPlayConnection,
+    codec: VideoCodec,
     mut video_rx: mpsc::Receiver<EncodedFrame>,
     touch_tx: mpsc::Sender<TouchEvent>,
     key_tx: Option<mpsc::Sender<crate::hid::KeyEvent>>,
     keyframe_tx: mpsc::Sender<()>,
     handover: CancellationToken,
+    mut audio: Option<crate::audio::AudioOutput>,
 ) -> Result<()> {
     let AirPlayConnection {
         tx,
@@ -253,7 +275,22 @@ pub async fn run_video_stream(
             ResourceConstraint::Anytime,
         ));
     }
-    tx.assert_modes(modes.serialize_to_state()).await?;
+    let screen_modes = modes;
+    if audio.is_some() {
+        modes.main_audio.take_by_controller(&Resource::take(
+            ResourceID::MainAudio,
+            ResourceTransferPriority::UserInitiated,
+            ResourceConstraint::Anytime,
+            ResourceConstraint::Anytime,
+        ));
+    }
+    if let Err(error) = tx.assert_modes(modes.serialize_to_state()).await {
+        if audio.is_none() { return Err(error.into()); }
+        tracing::warn!(?error, "Audio resource refused; retaining video-only connection");
+        audio = None;
+        modes = screen_modes;
+        tx.assert_modes(modes.serialize_to_state()).await?;
+    }
     tracing::info!("Asserted screen modes (controller owns screen)");
 
     let (tunnel_stream, tunnel) = crate::iap2_tunnel::open(tx.clone());
@@ -284,7 +321,25 @@ pub async fn run_video_stream(
     // Hold only RECORD, which is the promise that video is coming.
     let first_frame = wait_for_first_keyframe(&mut video_rx, &keyframe_tx).await?;
 
+    let mut audio_ready = None;
+    // Keep the guard alive for the entire session. Dropping it tears down the RTP stream.
+    let _audio_guard = if let Some(output) = audio {
+        match tx.setup_audio(latency, output.config.stream_type, output.config.format,
+            output.config.audio_type, None, output.recorder).await {
+            Ok(guard) => {
+                tracing::info!(?output.config, "CarPlay speaker audio ready");
+                audio_ready = Some(output.ready);
+                Some(guard)
+            }
+            Err(error) => {
+                tracing::warn!(?error, "Audio SETUP failed; continuing the working video stream");
+                None
+            }
+        }
+    } else { None };
+
     tx.record().await?;
+    if let Some(ready) = audio_ready { ready(); }
     tracing::info!("RECORD sent, streaming video");
 
     let mut sent_keyframe = false;

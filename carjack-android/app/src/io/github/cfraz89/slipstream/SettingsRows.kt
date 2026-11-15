@@ -94,3 +94,22 @@ fun RemoteAppsRow() {
         trailing = { Chevron() },
     ) { context.startActivity(Intent(context, RemoteAppsActivity::class.java)) }
 }
+
+@Composable
+fun HighlandAudioRow(onChange: () -> Unit) {
+    val context = LocalContext.current
+    val values = listOf("speakers", "off", "test")
+    val names = listOf("Highland speakers", "Phone speakers", "Speaker test tone (2 seconds)")
+    val index = values.indexOf(Variant.setting(context, "audio", "speakers")).coerceAtLeast(0)
+    var choosing by remember { mutableStateOf(false) }
+    ListRow(Leading.Glyph(R.drawable.ic_sl_remote), "Audio", names[index], trailing = { Chevron() }) {
+        choosing = true
+    }
+    if (choosing) {
+        ChoiceDialog("Audio — reconnect after changing", names, index, { choosing = false }) {
+            Variant.prefs(context).edit().putString("audio", values[it]).apply()
+            choosing = false
+            onChange()
+        }
+    }
+}

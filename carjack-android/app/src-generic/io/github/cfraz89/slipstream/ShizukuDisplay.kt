@@ -32,7 +32,7 @@ object ShizukuDisplay {
         .daemon(false)
         .processNameSuffix("display")
         .debuggable(false)
-        .version(43)
+        .version(44)
 
     @Volatile private var service: IDisplayService? = null
     private var bound = CountDownLatch(1)
@@ -208,6 +208,11 @@ object ShizukuDisplay {
 
     /** Part [part] of the phone's system log; null if none, or without Shizuku. */
     fun systemLog(part: Int): ParcelFileDescriptor? = withService(null) { it.systemLog(part) }
+
+    fun openAudio(token: Long, sampleRate: Int, channels: Int): ParcelFileDescriptor? =
+        withService(null) { it.openAudio(token, sampleRate, channels) }
+
+    fun closeAudio(token: Long) { withService(Unit) { it.closeAudio(token) } }
 
     /** The phone's real Bluetooth address through Shizuku, or null. */
     fun bluetoothAddress(): String? =

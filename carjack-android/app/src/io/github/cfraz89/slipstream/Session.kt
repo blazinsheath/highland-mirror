@@ -27,6 +27,8 @@ class Session(
 
     @Volatile private var handle = 0L
     private var stream: ScreenStream? = null
+    private var audio: AudioStream? = null
+    @Volatile private var ending = false
     @Volatile private var touch: Touch? = null
     /** Video got as far as starting. */
     @Volatile var streamed = false
@@ -38,7 +40,8 @@ class Session(
         val ours = pair[0]
         pump("carjack-iap-rx", socket.inputStream, FileOutputStream(ours.fileDescriptor), ours)
         pump("carjack-iap-tx", FileInputStream(ours.fileDescriptor), socket.outputStream, ours)
-        handle = Native.startSession(this, pair[1].detachFd(), name, address, codec)
+        handle = Native.startSession(this, pair[1].detachFd(), name, address, codec,
+            Variant.setting(context, "audio", "speakers") != "off")
     }
 
     private fun pump(name: String, input: InputStream, out: OutputStream, ours: ParcelFileDescriptor) {
@@ -63,7 +66,22 @@ class Session(
     }
 
     fun stop() {
+        ending = true
+        handler.post { audio?.stop(); audio = null }
         Native.stopSession(handle)
+    }
+
+    override fun startAudio(sampleRate: Int, channels: Int) {
+        handler.post {
+            if (!ending) {
+                audio?.stop()
+                audio = AudioStream(context, handle).also { it.start(sampleRate, channels) }
+            }
+        }
+    }
+
+    override fun stopAudio() {
+        handler.post { audio?.stop(); audio = null }
     }
 
     override fun joinWifi(ssid: String, passphrase: String?, bssid: String?) {
@@ -130,9 +148,12 @@ class Session(
     }
 
     override fun ended(error: String?) {
+        ending = true
         Log.i(TAG, "Session ended" + if (error == null) "" else ": $error")
         status("Session ended" + (if (error == null) "" else " ($error)") + "; waiting for the head unit")
         handler.post {
+            audio?.stop()
+            audio = null
             stream?.stop()
             stream = null
             touch = null

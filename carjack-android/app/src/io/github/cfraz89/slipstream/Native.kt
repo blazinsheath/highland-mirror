@@ -22,6 +22,9 @@ object Native {
 
         fun requestKeyframe()
 
+        fun startAudio(sampleRate: Int, channels: Int)
+        fun stopAudio()
+
         /** [action]: 0 down, 1 up, 2 move, of finger [pointer]; in panel pixels. */
         fun touch(action: Int, pointer: Int, x: Float, y: Float)
 
@@ -49,6 +52,7 @@ object Native {
     @JvmStatic
     external fun startSession(
         callbacks: Callbacks, iapFd: Int, name: String?, bluetoothAddress: String?, codec: Int,
+        audioEnabled: Boolean,
     ): Long
 
     @JvmStatic
@@ -63,4 +67,7 @@ object Native {
         handle: Long, buffer: ByteBuffer, offset: Int, size: Int, keyframe: Boolean,
         codecConfig: Boolean,
     )
+
+    @JvmStatic
+    external fun pushAudio(handle: Long, buffer: ByteBuffer, size: Int)
 }

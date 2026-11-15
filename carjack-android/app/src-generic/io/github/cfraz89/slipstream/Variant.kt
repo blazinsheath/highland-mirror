@@ -29,6 +29,9 @@ import java.io.IOException
 object Variant {
     private const val TAG = "carjack"
 
+    fun openAudio(token: Long, sampleRate: Int, channels: Int) = ShizukuDisplay.openAudio(token, sampleRate, channels)
+    fun closeAudio(token: Long) = ShizukuDisplay.closeAudio(token)
+
     const val PREFS = "slipstream"
     val NOTIFICATION_ICON = R.drawable.ic_sl_notify
     const val LOG_FILE = "slipstream.log"
