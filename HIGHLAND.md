@@ -12,8 +12,8 @@
 
 The upstream download has displayed apps on this Highland and accepted touchscreen playback
 controls. During that session, music played on the phone and the Highland refused the Bluetooth
-audio connection. Ending the Slipstream session restored Bluetooth speaker audio. This copy's
-custom build still needs to be compiled and tested on the devices.
+audio connection. Ending the Slipstream session restored Bluetooth speaker audio. This copy
+now compiles successfully; its behavior on the devices still needs testing.
 
 ## What this first change does
 
@@ -36,8 +36,13 @@ In GitHub, open **Actions**, enable workflows for the fork if prompted, select t
 then select **Run workflow** on `highland-dev` if a push has not already started it. Download
 the `Slipstream-Highland-debug` artifact after a successful run and extract its APK.
 
-This workflow has been prepared but has not yet completed a build. A green workflow run and a
-successful device test are required before calling this version verified.
+The first workflow run passed on November 15, 2026:
+https://github.com/blazinsheath/slipstream-highland/actions/runs/43768504623
+
+It built commit `4276b665501fefa5c7efed30ad09500841aaf215` and verified the installed package ID
+and APK signature. The `Slipstream-Highland-debug` artifact contains the baseline APK and its
+SHA-256 checksum. A successful device test is still required before calling the connection
+behavior verified; this build does not add speaker audio.
 
 Debug signing is for initial testing. Fresh GitHub runners may generate different debug keys,
 so later APKs may require uninstalling the earlier development copy. Before regular updates,
