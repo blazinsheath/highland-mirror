@@ -22,7 +22,7 @@ sentryRes.resolve("values/sentry.xml").writeText(
 
 // The release key (release.jks, its password in keystore.pass), where there is one, so local
 // builds and GitHub releases update each other.
-val keys = File(System.getenv("SLIPSTREAM_KEYS") ?: "${System.getProperty("user.home")}/.config/slipstream")
+val keys = File(System.getenv("HIGHLAND_KEYS") ?: "${System.getProperty("user.home")}/.config/slipstream-highland")
 val releaseKey = keys.resolve("release.jks").takeIf { it.exists() }
 
 android {
@@ -30,11 +30,11 @@ android {
     compileSdk { version = release(36) { minorApiLevel = 1 } }
     ndkVersion = "29.0.14206865"
     defaultConfig {
-        applicationId = "io.github.cfraz89.slipstream"
+        applicationId = "io.github.blazinsheath.slipstream.highland"
         minSdk = 33
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 30001
+        versionName = "0.3.0-highland.1"
         ndk.abiFilters += "arm64-v8a"
     }
     buildFeatures {

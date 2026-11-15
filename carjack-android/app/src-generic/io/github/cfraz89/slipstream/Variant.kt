@@ -34,7 +34,9 @@ object Variant {
     const val LOG_FILE = "slipstream.log"
     val REPORTER: Native.Reporter? get() = Reports.CORE
     /** The installed app's ID, for Shizuku's service component, which is built statically. */
-    const val APP_ID = "io.github.cfraz89.slipstream"
+    const val APP_ID = "io.github.blazinsheath.slipstream.highland"
+    // Source/JNI class names stay upstream-compatible; installed components use our own app ID.
+    private const val COMPONENT_PACKAGE = "io.github.cfraz89.slipstream"
 
     private var logcat: java.lang.Process? = null
 
@@ -75,7 +77,7 @@ object Variant {
     }
 
     /** The phone's screen while activated. */
-    private const val DASHBOARD = "$APP_ID/$APP_ID.DashboardActivity"
+    private const val DASHBOARD = "$APP_ID/$COMPONENT_PACKAGE.DashboardActivity"
 
     /** The notification's Turn off ends the activation. */
     fun onStopRequested(context: Context) {
@@ -179,7 +181,7 @@ object Variant {
     }
 
     /** The built-in launcher's home screen, which the head unit gets unless another app is chosen. */
-    private const val LAUNCHER = "$APP_ID/$APP_ID.launcher.HomeActivity"
+    private const val LAUNCHER = "$APP_ID/$COMPONENT_PACKAGE.launcher.HomeActivity"
 
     /** What the head unit can open on connect besides an app, the first by default. */
     val ON_CONNECT = listOf(Choices.LAUNCHER, Previews.HOME)

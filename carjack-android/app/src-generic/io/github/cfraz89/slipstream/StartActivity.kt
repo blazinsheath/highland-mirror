@@ -176,7 +176,7 @@ class StartActivity : ComponentActivity() {
             // Yellowtail (Apache 2.0, res/font): a fast script, shaded pink into blue like a trail.
             val colors = MaterialTheme.colorScheme
             Text(
-                "Slipstream",
+                "Highland",
                 style = TextStyle(
                     fontFamily = FontFamily(Font(R.font.yellowtail)),
                     fontSize = 40.sp,

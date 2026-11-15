@@ -121,12 +121,12 @@ _gradle +tasks:
     set -euo pipefail
     python3 carjack-android/check-builds.py
     podman build -q -t localhost/carjack-android-build carjack-android >/dev/null
-    keys=~/.config/slipstream
+    keys=~/.config/slipstream-highland
     mkdir -p ~/.gradle ~/.cargo
     podman run --rm --userns=keep-id --security-opt label=disable \
         -v {{justfile_directory()}}:/src -w /src/carjack-android \
         -v ~/.gradle:/gradle -e GRADLE_USER_HOME=/gradle -v ~/.cargo:/cargo -e CARGO_HOME=/cargo \
-        $([ -d $keys ] && echo "-v $keys:/keys:ro -e SLIPSTREAM_KEYS=/keys") -e SENTRY_DSN \
+        $([ -d $keys ] && echo "-v $keys:/keys:ro -e HIGHLAND_KEYS=/keys") -e SENTRY_DSN \
         localhost/carjack-android-build gradle --no-daemon -q {{tasks}}
     # Symbols for Sentry's native crash reports, where sentry-cli is set up (~/.sentryclirc).
     if command -v sentry-cli >/dev/null && [ -f ~/.sentryclirc ]; then
@@ -135,7 +135,7 @@ _gradle +tasks:
     fi
 
 # Slipstream, the generic Android app, into target/Slipstream.apk; signed with the release key
-# (~/.config/slipstream) where there is one, so local builds and releases update each other.
+# (~/.config/slipstream-highland) where there is one, so local builds and releases update each other.
 [script('bash')]
 slipstream: (_gradle ":slipstream:assembleRelease")
     set -euo pipefail
@@ -149,14 +149,14 @@ motopod: (_gradle ":motopod:motopodApk")
     cp target/gradle/motopod/outputs/Motopod.apk target/Motopod.apk
     ls -l target/Motopod.apk
 
-# Slipstream built, signed with the release key (~/.config/slipstream) and published as a GitHub
+# Slipstream built, signed with the release key (~/.config/slipstream-highland) and published as a GitHub
 # release, where Obtainium picks it up. Bump versionCode and versionName in
 # carjack-android/gradle/slipstream/build.gradle.kts first; commit and push.
 # prerelease=true marks it a pre-release (Obtainium installs those only when told to).
 [script('bash')]
 slipstream-release prerelease="false": slipstream
     set -euo pipefail
-    repo=cfraz89/carjack
+    repo=blazinsheath/slipstream-highland
     [ -z "$(git status --porcelain)" ] || { echo "carjack has uncommitted changes" >&2; exit 1; }
     commit=$(git rev-parse HEAD)
     git branch -r --contains "$commit" | grep -q . || { echo "HEAD isn't pushed" >&2; exit 1; }
@@ -172,8 +172,8 @@ slipstream-release prerelease="false": slipstream
     signed=target/Slipstream-$version.apk
     cp target/Slipstream.apk $signed
     # Not grep -q: quitting early kills apksigner with SIGPIPE, which pipefail counts as failure.
-    $tools/apksigner verify --print-certs $signed | grep "CN=Slipstream" >/dev/null \
-        || { echo "Not signed with the release key (~/.config/slipstream)" >&2; exit 1; }
+    $tools/apksigner verify --print-certs $signed | grep "CN=Slipstream Highland" >/dev/null \
+        || { echo "Not signed with the release key (~/.config/slipstream-highland)" >&2; exit 1; }
     # The app's changes since the last release, for the notes.
     last=$(git tag -l 'slipstream-v*' --sort=-creatordate | head -1)
     notes=""
@@ -181,7 +181,7 @@ slipstream-release prerelease="false": slipstream
         notes=$(git log --format='- %s' $last..$commit -- carjack-android libcarjack)
     fi
     notes="${notes:-First release}"$'\n\n'"$(cat carjack-android/known-to-work.md)"
-    gh release create "$tag" $signed -R $repo --target "$commit" --title "Slipstream $version" \
+    gh release create "$tag" $signed -R $repo --target "$commit" --title "Slipstream Highland $version" \
         --notes "$notes" {{ if prerelease == "true" { "--prerelease" } else { "" } }}
     git fetch --tags -q
 

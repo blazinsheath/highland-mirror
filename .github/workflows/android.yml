@@ -1,0 +1,71 @@
+name: Build Slipstream Highland
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [highland-dev]
+  pull_request:
+    branches: [highland-dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: highland-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the complete source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check shared Android components
+        run: python3 carjack-android/check-builds.py
+
+      - name: Build the upstream Android toolchain container
+        run: >-
+          docker build --file carjack-android/Containerfile
+          --tag slipstream-highland-build carjack-android
+
+      - name: Build the development APK
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env GRADLE_USER_HOME=/tmp/highland-gradle \
+            --env GRADLE_OPTS=-Duser.home=/tmp/highland-home \
+            --env ANDROID_USER_HOME=/tmp/highland-android \
+            --env CARGO_HOME=/tmp/highland-cargo \
+            --env SENTRY_DSN= \
+            --volume "$GITHUB_WORKSPACE:/src" \
+            --workdir /src/carjack-android \
+            slipstream-highland-build \
+            gradle --no-daemon --console=plain :slipstream:assembleDebug
+
+      - name: Verify the APK identity and signature
+        run: |
+          apk=target/gradle/slipstream/outputs/apk/debug/slipstream-debug.apk
+          docker run --rm --volume "$GITHUB_WORKSPACE:/src:ro" \
+            slipstream-highland-build \
+            /opt/android-sdk/build-tools/36.0.0/aapt2 dump badging "/src/$apk" \
+            | tee target/highland-apk-info.txt
+          grep -F "package: name='io.github.blazinsheath.slipstream.highland'" target/highland-apk-info.txt
+          docker run --rm --volume "$GITHUB_WORKSPACE:/src:ro" \
+            slipstream-highland-build \
+            /opt/android-sdk/build-tools/36.0.0/apksigner verify --verbose "/src/$apk"
+          cp "$apk" target/Slipstream-Highland-debug.apk
+          cd target
+          sha256sum Slipstream-Highland-debug.apk > Slipstream-Highland-debug.apk.sha256
+
+      - name: Upload the installable development APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Slipstream-Highland-debug
+          path: |
+            target/Slipstream-Highland-debug.apk
+            target/Slipstream-Highland-debug.apk.sha256
+            target/highland-apk-info.txt
+          if-no-files-found: error
+          retention-days: 14

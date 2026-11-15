@@ -1,3 +1,15 @@
+# Slipstream Highland
+
+Development copy of [Christopher Fraser's carjack / Slipstream](https://github.com/cfraz89/carjack)
+for a CFMOTO U10 Pro Highland and Samsung Galaxy S25 Plus. The complete upstream source,
+history, and license notices are retained.
+
+This first version establishes a separately installable baseline. **CarPlay speaker audio has
+not been implemented or verified in this copy.** Shizuku is still required. See
+[HIGHLAND.md](HIGHLAND.md) for the build, installation, and audio-development milestones.
+
+The upstream project documentation follows below.
+
 # carjack
 
 Wireless CarPlay for things that aren't iPhones. carjack makes a Linux machine or an Android

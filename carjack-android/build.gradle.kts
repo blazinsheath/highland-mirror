@@ -22,7 +22,7 @@ tasks.register<Exec>("cargoNdk") {
     environment("CXXFLAGS_aarch64_linux_android", "-I${toolchain.resolve("include")}")
     commandLine(
         "cargo", "ndk", "-t", "arm64-v8a", "--platform", "30", "-o", nativeLibs,
-        "build", "--release", "-p", "carjack-android",
+        "build", "--locked", "--release", "-p", "carjack-android",
     )
     outputs.dir(nativeLibs)
     // Cargo knows what's changed.
