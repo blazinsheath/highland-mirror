@@ -95,4 +95,28 @@ mod tests {
         assert_eq!(config.stream_type, StreamType::MainHighAudio);
         assert_eq!(config.format, AudioFormat::AAC_LC_48000_STEREO);
     }
+
+    #[test]
+    fn highland_aac_only_music_format_constructs_a_real_encoder() {
+        use catplay_carplay::audio::{AudioStreamBasicDescription, codec::{AudioEncoderFactory, runtime::AudioEncoderDispatch}};
+        let mut info = InfoMessageResponse::default();
+        info.audio_formats.push(AudioFormatStruct {
+            stream_type: StreamType::MainAudio,
+            audio_type: Some(AudioType::Default),
+            audio_output_formats: Some(AudioFormat::OPUS_16000_MONO | AudioFormat::OPUS_24000_MONO),
+            ..Default::default()
+        });
+        info.audio_formats.push(AudioFormatStruct {
+            stream_type: StreamType::MainHighAudio,
+            audio_type: Some(AudioType::Media),
+            audio_output_formats: Some(AudioFormat::AAC_LC_44100_STEREO),
+            ..Default::default()
+        });
+        let config = media_config(&info).unwrap();
+        assert_eq!((config.sample_rate, config.channels), (44100, 2));
+        assert_eq!(config.stream_type, StreamType::MainHighAudio);
+        let output = AudioStreamBasicDescription::try_from(config.format).unwrap();
+        let input = AudioStreamBasicDescription::fill_pcm(config.sample_rate, 16, 16, config.channels as u8, false);
+        assert!(AudioEncoderDispatch::new(input, output).is_ok(), "The Highland's actual music format must have an encoder");
+    }
 }

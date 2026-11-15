@@ -99,7 +99,7 @@ fun RemoteAppsRow() {
 fun HighlandAudioRow(onChange: () -> Unit) {
     val context = LocalContext.current
     val values = listOf("speakers", "off", "test")
-    val names = listOf("Highland speakers", "Phone speakers", "Speaker test tone (2 seconds)")
+    val names = listOf("Highland speakers", "Phone speakers", "Speaker test tone (repeats for 30 seconds)")
     val index = values.indexOf(Variant.setting(context, "audio", "speakers")).coerceAtLeast(0)
     var choosing by remember { mutableStateOf(false) }
     ListRow(Leading.Glyph(R.drawable.ic_sl_remote), "Audio", names[index], trailing = { Chevron() }) {

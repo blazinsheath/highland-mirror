@@ -6,6 +6,7 @@ members = [
     "iap2-proto",
     "libcarjack",
     "cuda-dmabuf",
+    "vendor/catplay_audio",
 ]
 # A bare `cargo build`/`cargo run` is the Linux app; the Android core builds with the apps (`just slipstream`, `just motopod`).
 default-members = ["carjack-linux"]
@@ -13,3 +14,7 @@ default-members = ["carjack-linux"]
 [workspace.package]
 edition = "2024"
 license = "MIT OR Apache-2.0"
+
+# Keep the working CarPlay transport pinned while supplying its missing AAC-LC encoder.
+[patch."https://github.com/cfraz89/catplay.git"]
+catplay_audio = { path = "vendor/catplay_audio" }

@@ -29,6 +29,7 @@ impl AudioRecorder for PlaybackRecorder {
     type Sample = i16;
     fn init(&mut self, sink: AudioSinkBox<i16>) -> RtspResult<()> {
         *self.audio.sink.lock().unwrap() = Some(sink);
+        tracing::info!("CarPlay audio PCM producer initialized");
         Ok(())
     }
     fn start(&mut self) {} // Actual capture starts after RECORD, not during SETUP.

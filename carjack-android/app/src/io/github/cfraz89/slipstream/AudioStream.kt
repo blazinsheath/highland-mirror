@@ -71,18 +71,21 @@ class AudioStream(private val context: Context, private val session: Long) {
         }
     }
 
-    /** Quiet 440Hz tone for two seconds, followed by silence; never uses phone capture. */
+    /** Quiet two-second bursts for 30 seconds, allowing time to adjust the vehicle volume. */
     private fun testTone(sampleRate: Int, channels: Int) {
         val frames = sampleRate / 100
         val buffer = ByteBuffer.allocateDirect(frames * channels * 2).order(ByteOrder.LITTLE_ENDIAN)
         val started = SystemClock.elapsedRealtime()
+        Log.i("carjack", "Starting speaker test: $sampleRate Hz, $channels channels, 30 seconds")
         var chunk = 0L
         while (running) {
             buffer.clear()
             for (frame in 0 until frames) {
                 val index = chunk * frames + frame
                 val seconds = index.toDouble() / sampleRate
-                val envelope = minOf(1.0, seconds / 0.05, (2.0 - seconds).coerceAtLeast(0.0) / 0.05)
+                val phase = seconds % 5.0
+                val envelope = if (seconds >= 30) 0.0 else
+                    minOf(1.0, phase / 0.05, (2.0 - phase).coerceAtLeast(0.0) / 0.05)
                 val value = (sin(2 * PI * 440 * seconds) * 1500 * envelope).toInt().toShort()
                 repeat(channels) { buffer.putShort(value) }
             }

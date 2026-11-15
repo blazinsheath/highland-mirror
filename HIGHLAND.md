@@ -5,7 +5,22 @@ The owner confirmed that the Highland baseline APK connects and displays apps on
 Upstream sources, MIT/Apache-2.0 licenses, and the original main branch remain available.
 The Android application ID is io.github.blazinsheath.slipstream.highland.
 
-## Version 0.3.0-highland.2: CarPlay speaker audio
+## Version 0.3.0-highland.3: AAC encoder correction
+
+Device testing of .2 preserved picture and touch but produced no audio. The owner's log confirms
+that this Highland advertises AAC-LC 44.1 kHz stereo on MainHighAudio for music. The previous
+build selected that format, but catplay's encoder dispatcher had AAC construction commented out,
+so audio setup returned NotSupported locally before the head unit received any audio request.
+
+Version .3 patches only the audio codec crate, retaining the pinned CarPlay connection code.
+It implements raw AAC-LC encoding with the already-present fdk-aac dependency. Tests exercise
+the real encoder/decoder dispatcher at 44.1 and 48 kHz, check both decoded channels carry audio,
+and reproduce the Highland's advertised AAC-only media capabilities. The speaker test now
+repeats quiet two-second bursts for 30 seconds to allow time to adjust vehicle volume.
+Physical speaker playback still requires another vehicle test; this fixes the confirmed local
+NotSupported failure, without claiming the complete vehicle audio path has been verified.
+
+## CarPlay speaker audio behavior
 
 - Claims the CarPlay MainAudio resource in addition to the working screen resource.
 - Opens an advertised main media output, preferring stereo PCM at 48 kHz or 44.1 kHz;
@@ -15,7 +30,7 @@ The Android application ID is io.github.blazinsheath.slipstream.highland.
 - Starts capture only after audio SETUP and RECORD succeed, and closes capture when the session
   ends. A session token prevents an old disconnect from stopping a new session's capture.
 - Adds Settings > Audio: Highland speakers (default), Phone speakers (audio forwarding off),
-  or Speaker test tone (a quiet two-second 440 Hz tone on the next connection).
+  or Speaker test tone (quiet 440 Hz bursts for 30 seconds on the next connection).
 - Retains the video-only path if the head unit does not advertise a supported audio format.
 - Calls, the vehicle microphone, and genuine Android Auto projection are not implemented.
 

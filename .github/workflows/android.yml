@@ -30,6 +30,17 @@ jobs:
           docker build --file carjack-android/Containerfile
           --tag slipstream-highland-build carjack-android
 
+      - name: Test audio codecs, negotiation and PCM forwarding
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env CARGO_HOME=/tmp/highland-cargo \
+            --env CARGO_TARGET_DIR=/src/target/test-cargo \
+            --volume "$GITHUB_WORKSPACE:/src" \
+            --workdir /src \
+            slipstream-highland-build \
+            cargo test --locked --lib -p catplay_audio -p libcarjack -p carjack-android
+
       - name: Build the development APK
         run: |
           docker run --rm \
@@ -43,17 +54,6 @@ jobs:
             --workdir /src/carjack-android \
             slipstream-highland-build \
             gradle --no-daemon --console=plain :slipstream:assembleDebug
-
-      - name: Test native audio negotiation and PCM forwarding
-        run: |
-          docker run --rm \
-            --user "$(id -u):$(id -g)" \
-            --env CARGO_HOME=/tmp/highland-cargo \
-            --env CARGO_TARGET_DIR=/src/target/test-cargo \
-            --volume "$GITHUB_WORKSPACE:/src" \
-            --workdir /src \
-            slipstream-highland-build \
-            cargo test --locked --lib -p libcarjack -p carjack-android
 
       - name: Verify the APK identity and signature
         run: |
