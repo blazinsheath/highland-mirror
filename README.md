@@ -2,9 +2,11 @@
 
 One Android app for phone mirroring, music and touchscreen control on a CFMOTO U10 Pro Highland over wireless CarPlay. Add and arrange your apps on the Highland home page.
 
-[Download preview 6](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.6/Highland-Mirror-0.1.0-preview.6.apk) · [Setup and support](docs/HIGHLAND-MIRROR.md)
+[Download preview 7](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.7/Highland-Mirror-0.1.0-preview.7.apk) · [Setup and support](docs/HIGHLAND-MIRROR.md)
 
-Preview 7 is being tested: guided first-time setup, automatic Bluetooth reconnection recovery, and Highland Mirror branding throughout the app.
+Preview 7 includes: guided first-time setup, automatic Bluetooth reconnection recovery, and Highland Mirror branding throughout the app.
+
+All 85 automated tests passed. Reconnection recovery still needs a physical vehicle test.
 
 Install updates over the existing app to keep pairing and shortcuts. Android requires one-time Wireless debugging authorization and screen-sharing approval. Keep the phone unlocked with the screen on. Protected Netflix video and cellular-call audio are unsupported.
 

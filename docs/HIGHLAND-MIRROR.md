@@ -5,9 +5,9 @@ CarPlay. It includes the customizable Highland home page and an owner-paired she
 **Everything is included in one APK.** The built-in helper supplies vehicle audio, automatic
 phone identification and vehicle touch after the owner authorizes pairing.
 
-[Download the signed preview 6 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.6/Highland-Mirror-0.1.0-preview.6.apk).
+[Download the signed preview 7 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.7/Highland-Mirror-0.1.0-preview.7.apk).
 
-## Preview 7 improvements (under validation)
+## Preview 7 improvements
 
 First-time Start opens a three-step guide: enable phone developer options, enable Wireless
 debugging, then enter the pairing code from the notification. Each return to the app checks
@@ -167,15 +167,16 @@ New pairing dependencies are pinned: LibADB Android 3.1.1 (Apache-2.0 option), C
 source URLs and replacement/rebuild instructions are bundled under Settings & help >
 Open-source licenses and in app/mirror/assets/licenses. Upstream source/history/notices remain.
 
-Preview 6 passed **78 automated tests**: 41 native media tests and 37 Android tests, including
-six new input framing/validation, truncation and authenticated input-order tests. Package/version,
+Preview 7 passed **85 automated tests**: 41 native media tests and 44 Android tests, including
+Bluetooth reset restoration/failure and setup progress tests, plus the existing input, audio, pairing
+and startup tests. Package/version,
 permission boundaries and Android APK Signature Scheme v2 were verified. Native ELF segments
 and APK library offsets retain 16 KB alignment. Preview 5 was physically confirmed for connection
-and audio. The new automatic-control path still needs a phone/vehicle test.
+and audio. Automatic control and reconnect recovery still need a phone/vehicle test.
 
-Source: `3d4d004425a233a722f1ce07d9be679284f92af6`.
-[Build and test run](https://github.com/blazinsheath/slipstream-highland/actions/runs/43925585141).
-APK SHA-256: `2231dc5a6660d8f3a008466eafe5ebd037a2c4aed7e29818a0bcaa0d7e45ce29`.
+Source: `4fc547e0d93d2a7310eccab18606ca9f3c8549f1`.
+[Build and test run](https://github.com/blazinsheath/slipstream-highland/actions/runs/43933621036).
+APK SHA-256: `c529d446a071f9e3e2476c4f69419890dceb9a8582c40f087a0249d18e06c796`.
 
 Official updates retain release certificate SHA-256:
 `d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9`.
@@ -206,3 +207,7 @@ The page also mixes USB-installation wording with wireless models, so compatibil
 confirmed by the vendor before relying on it for a wireless-only Highland. No vendor contact,
 adapter purchase, firmware modification or DRM workaround was performed. This app remains
 one APK with no additional hardware requirement for its supported mirroring/music features.
+
+Android documents that secure windows are blanked on non-secure virtual displays and reserves
+secure capture permission for system components. The new pairing/reconnect code does not change
+that capture path: [Android display restrictions](https://developer.android.com/reference/android/hardware/display/DisplayManager#VIRTUAL_DISPLAY_FLAG_SECURE).
