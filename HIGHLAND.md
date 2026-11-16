@@ -5,7 +5,23 @@ The owner confirmed that the Highland baseline APK connects and displays apps on
 Upstream sources, MIT/Apache-2.0 licenses, and the original main branch remain available.
 The Android application ID is io.github.blazinsheath.slipstream.highland.
 
-## Version 0.3.0-highland.5: CarPlay audio playback boundary
+## Version 0.3.0-highland.5: Bluetooth audio with CarPlay picture
+
+The new Bluetooth speakers option projects only the picture. It disables CarPlay audio SETUP,
+test-tone generation and REMOTE_SUBMIX capture, and explicitly leaves the MainAudio resource
+with the accessory. This differs from .4's Phone speakers option, which left a silent CarPlay
+audio stream open and retained its audio resource. Bluetooth is the default on a fresh install;
+existing installations retain their saved selection. Select it before starting a fresh session.
+
+After connecting the picture, select CFMOTO in Samsung's Media output and play ordinary music.
+The app does not force an audio route or bypass a head unit that refuses simultaneous A2DP and
+CarPlay. Whether this Highland supports the combination still requires the owner's vehicle test.
+Switching between Bluetooth and CarPlay audio requires ending the session and reconnecting;
+the app displays that requirement. Changes among the three CarPlay audio sources remain live.
+The resource test checks that picture-only mode assigns MainAudio to the accessory while
+retaining the phone's screen ownership. Screen-only teardown omits the unopened audio stream.
+
+### CarPlay audio playback boundary
 
 The .4 device log confirms successful live source changes, REMOTE_SUBMIX capture and sustained
 audio transmission. The owner still hears neither music nor the generated tone on the Highland.
@@ -80,8 +96,9 @@ NotSupported failure, without claiming the complete vehicle audio path has been 
   audio files are used. PCM is forwarded through JNI to the encrypted CarPlay RTP stream.
 - Starts capture only after audio SETUP and RECORD succeed, and closes capture when the session
   ends. A session token prevents an old disconnect from stopping a new session's capture.
-- Adds Settings > Audio: Highland speakers (default), Phone speakers (audio forwarding off),
-  or Speaker test tone (quiet 440 Hz bursts for 30 seconds, applied live while connected).
+- Adds Settings > Audio: Bluetooth speakers (default for a fresh install), Highland speakers
+  (CarPlay), Phone speakers, or Speaker test tone. Bluetooth mode requires a fresh connection;
+  changes between the other sources apply live to an already-open CarPlay audio stream.
 - Retains the video-only path if the head unit does not advertise a supported audio format.
 - Calls, the vehicle microphone, and genuine Android Auto projection are not implemented.
 
@@ -98,12 +115,15 @@ https://github.com/Genymobile/scrcpy/blob/master/doc/audio.md
    Uninstalling clears that copy's settings. The original upstream Slipstream can stay installed.
 2. Start Shizuku and authorize Slipstream Highland. Restart Shizuku after replacing the APK
    so the updated helper (version 44) is loaded.
-3. In Highland settings choose Audio > Highland speakers. End any other Slipstream session.
+3. In Highland settings choose Audio > Bluetooth speakers. End any other Slipstream session.
 4. While parked, connect as before with Bluetooth and Wi-Fi enabled and select CarPlay on the
-   CFMOTO. Play music, then adjust the Highland's media volume while it is playing.
-5. If silent, select Audio > Speaker test tone during the connection. Tone bursts repeat for
-   30 seconds. Selecting it again replays them. Switch back to Highland speakers for music;
-   this change also applies live, without restarting the connection.
+   CFMOTO. Open Samsung's Media output, select CFMOTO and play music. Adjust the Highland volume.
+   If CFMOTO cannot connect as an audio device while CarPlay is active, this firmware may prevent
+   the combination; Bluetooth-only playback outside a CarPlay session remains available.
+5. To test the separate CarPlay audio path, choose Highland speakers (CarPlay), end the session
+   and reconnect. Select Speaker test tone during this connection. Tone bursts repeat for
+   30 seconds; selecting it again replays them. Switch back to Highland speakers (CarPlay) for
+   music. These changes between CarPlay sources apply live.
 6. If the tone works but music does not, use Send logs after trying the music app. If the tone
    is also silent, Send logs captures the advertised formats and audio setup error for diagnosis.
 7. Confirm that ending the session restores normal phone/Bluetooth playback and that reconnecting

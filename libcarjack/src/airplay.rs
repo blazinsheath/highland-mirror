@@ -13,7 +13,7 @@ use catplay_carplay::carplay_tx::{
 use catplay_carplay::common::AirPlayFeature;
 use catplay_carplay::modes::{
     EntityEnum, Resource, ResourceConstraint, ResourceController, ResourceID,
-    ResourceTransferPriority,
+    ResourceTransferPriority, ResourceManager,
 };
 use catplay_carplay::msg::{Command, SiriAction};
 use catplay_carplay::rtsp_frame::HttpStatus;
@@ -88,15 +88,17 @@ impl AirPlayConnection {
     pub fn teardown_client(&self) -> catplay_carplay::carplay_tx::AirPlayRtspClient {
         self.audio_transport.client.clone()
     }
-    pub fn teardown_payload(&self) -> catplay_carplay::msg::TeardownPayload {
+    pub fn teardown_payload(&self, include_audio: bool) -> catplay_carplay::msg::TeardownPayload {
         use catplay_carplay::msg::{StreamType, TeardownPayload, TeardownStream};
         let info = self.tx.info_cached();
         let mut streams = Vec::new();
         if let Some(display) = info.displays.first() {
             streams.push(TeardownStream::screen(StreamType::Screen, display.uuid.clone()));
         }
-        if let Some(config) = crate::audio::media_config(info) {
-            streams.push(TeardownStream::new(config.stream_type));
+        if include_audio {
+            if let Some(config) = crate::audio::media_config(info) {
+                streams.push(TeardownStream::new(config.stream_type));
+            }
         }
         TeardownPayload { streams }
     }
@@ -262,6 +264,13 @@ pub async fn run_video_stream(
     run_media_stream(conn, codec, video_rx, touch_tx, key_tx, keyframe_tx, handover, None).await
 }
 
+/// Picture-only projection must not reserve the audio resource: the accessory can
+/// then use its own source, including Bluetooth A2DP when its firmware permits it.
+fn leave_audio_to_accessory(modes: &mut ResourceController) {
+    modes.main_audio = ResourceManager::accessory_owned(
+        ResourceConstraint::Anytime, ResourceConstraint::Anytime);
+}
+
 /// The existing video path plus optional media audio; Linux callers remain video-only.
 #[allow(clippy::too_many_arguments)]
 pub async fn run_media_stream(
@@ -287,6 +296,10 @@ pub async fn run_media_stream(
     // Claim the main screen BEFORE setting up the screen stream: without that ordering the head
     // unit does not consider us the screen owner, and tears the session down once video arrives.
     let mut modes = ResourceController::from_change_modes(&tx.info_cached().modes);
+    if audio.is_none() {
+        leave_audio_to_accessory(&mut modes);
+        tracing::info!("Video-only projection: MainAudio left to the accessory; no CarPlay capture or audio stream");
+    }
     if modes.screen.entity() != EntityEnum::Controller {
         modes.screen.take_by_controller(&Resource::take(
             ResourceID::MainScreen,
@@ -759,6 +772,16 @@ fn abort_on_drop(handle: tokio::task::JoinHandle<()>) -> impl Drop {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn picture_only_mode_leaves_main_audio_to_accessory_without_releasing_screen() {
+        let mut modes = ResourceController::default();
+        assert_eq!(modes.main_audio.entity(), EntityEnum::Controller);
+        leave_audio_to_accessory(&mut modes);
+        let state = modes.serialize_to_state();
+        assert_eq!(state.main_audio, EntityEnum::Accessory);
+        assert_eq!(state.screen, EntityEnum::Controller);
+    }
 
     /// Two accessories captured from a real iPhone: neither declares a codec, and only the
     /// implementation version separates the one that gets HEVC from the one that gets H264.

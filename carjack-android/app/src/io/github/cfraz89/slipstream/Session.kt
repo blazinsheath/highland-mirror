@@ -30,6 +30,7 @@ class Session(
     private var stream: ScreenStream? = null
     private var audio: AudioStream? = null
     private var audioConfig: Pair<Int, Int>? = null
+    private var carPlayAudioEnabled = false
     private var afterStop: (() -> Unit)? = null
     private val settingsChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "audio_revision") handler.post { restartAudio() }
@@ -47,7 +48,10 @@ class Session(
         val ours = pair[0]
         pump("carjack-iap-rx", socket.inputStream, FileOutputStream(ours.fileDescriptor), ours)
         pump("carjack-iap-tx", FileInputStream(ours.fileDescriptor), socket.outputStream, ours)
-        handle = Native.startSession(this, pair[1].detachFd(), name, address, codec, true)
+        val audioMode = Variant.setting(context, "audio", "bluetooth")
+        carPlayAudioEnabled = audioMode != "bluetooth"
+        Log.i(TAG, "Starting session: audio=$audioMode, CarPlay audio enabled=$carPlayAudioEnabled")
+        handle = Native.startSession(this, pair[1].detachFd(), name, address, codec, carPlayAudioEnabled)
     }
 
     private fun pump(name: String, input: InputStream, out: OutputStream, ours: ParcelFileDescriptor) {
@@ -89,10 +93,22 @@ class Session(
 
     private fun restartAudio() {
         if (ending) return
+        val mode = Variant.setting(context, "audio", "bluetooth")
+        val wantsCarPlayAudio = mode != "bluetooth"
+        if (wantsCarPlayAudio != carPlayAudioEnabled) {
+            audio?.stop()
+            audio = null
+            Log.i(TAG, "Audio transport change requires a new connection: $mode")
+            ScreenStream.current?.flash("End the session and reconnect to apply this audio mode")
+            return
+        }
+        if (!carPlayAudioEnabled) {
+            ScreenStream.current?.flash("Audio: select CFMOTO in Samsung Media output")
+            return
+        }
         val config = audioConfig ?: return
         audio?.stop()
         audio = AudioStream(context, handle).also { it.start(config.first, config.second) }
-        val mode = Variant.setting(context, "audio", "speakers")
         Log.i(TAG, "Audio mode applied live: $mode")
         ScreenStream.current?.flash(when (mode) {
             "test" -> "Speaker test: repeating for 30 seconds"
@@ -146,6 +162,9 @@ class Session(
             stream = s
             try {
                 s.start(width, height, fps, viewX, viewY, viewWidth, displayHeight, bar, hevc)
+                if (!carPlayAudioEnabled) {
+                    s.flash("Bluetooth audio: select CFMOTO in Samsung Media output")
+                }
             } catch (e: IOException) {
                 Log.e(TAG, "Could not start the screen stream", e)
                 stop()

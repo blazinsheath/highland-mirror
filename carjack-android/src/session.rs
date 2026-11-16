@@ -300,7 +300,7 @@ pub async fn run(
     } else {
         VideoCodec::H264
     });
-    *ctl.teardown.lock().unwrap() = Some((conn.teardown_client(), conn.teardown_payload()));
+    *ctl.teardown.lock().unwrap() = Some((conn.teardown_client(), conn.teardown_payload(params.audio_enabled)));
     let view = conn.view.as_ref().map_or((0, 0, conn.width, conn.height), |v| {
         (v.origin_x as u32, v.origin_y as u32, v.width as u32, v.height as u32)
     });
