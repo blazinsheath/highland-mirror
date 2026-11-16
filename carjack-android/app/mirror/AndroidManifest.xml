@@ -15,6 +15,9 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <queries>
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent>
+    </queries>
     <application android:name=".MirrorApplication" android:label="Highland Mirror"
         android:theme="@style/MirrorTheme" android:icon="@drawable/ic_mirror"
         android:allowBackup="false" android:usesCleartextTraffic="true" android:extractNativeLibs="false">
@@ -24,8 +27,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name="io.github.cfraz89.slipstream.launcher.HomeActivity"
+            android:exported="false" android:theme="@style/SlipstreamTheme.Home"
+            android:launchMode="singleTask" android:screenOrientation="sensorLandscape"
+            android:configChanges="keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode" />
+        <activity android:name="io.github.cfraz89.slipstream.launcher.AllAppsActivity"
+            android:exported="false" android:theme="@style/SlipstreamTheme.Panel" android:launchMode="singleTop" />
+        <activity android:name="io.github.cfraz89.slipstream.launcher.SettingsActivity"
+            android:exported="false" android:theme="@style/SlipstreamTheme.Panel.Full" android:launchMode="singleTop" />
         <service android:name=".SlipstreamService" android:exported="false"
             android:foregroundServiceType="connectedDevice|mediaProjection" />
+        <service android:name="io.github.cfraz89.slipstream.launcher.MediaListener"
+            android:exported="true" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+        </service>
         <service android:name=".MirrorControlService" android:exported="true"
             android:label="Highland Mirror touch control" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>

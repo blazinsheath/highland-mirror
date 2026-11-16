@@ -18,6 +18,17 @@ class MirrorControlService : AccessibilityService() {
         fun global(action: Int) {
             main.post { if (MirrorProjection.attached) current?.performGlobalAction(action) }
         }
+        fun home() {
+            main.post {
+                if (!MirrorProjection.attached) return@post
+                current?.let { service ->
+                    service.startActivity(android.content.Intent(service,
+                        io.github.cfraz89.slipstream.launcher.HomeActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                            android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+                }
+            }
+        }
         fun touch(action: Int, pointer: Int, point: MirrorGeometry.Point?) {
             main.post {
                 if (!MirrorProjection.attached) return@post

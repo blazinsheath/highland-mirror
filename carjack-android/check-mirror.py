@@ -19,6 +19,10 @@ assert control.get(ns + 'canRetrieveWindowContent') == 'false'
 assert control.get(ns + 'canPerformGestures') == 'true'
 module = (root / 'gradle/highlandmirror/build.gradle.kts').read_text()
 assert 'src-generic' not in module and 'libs/shizuku' not in module
+assert 'implementation(project(":launcher"))' in module
+activities = {item.get(ns + 'name') for item in manifest.findall('application/activity')}
+assert 'io.github.cfraz89.slipstream.launcher.HomeActivity' in activities
+assert 'io.github.cfraz89.slipstream.launcher.AllAppsActivity' in activities
 variant = (root / 'app/src-mirror/io/github/cfraz89/slipstream/Variant.kt').read_text()
 assert '"record_screen_samples" -> "false"' in variant
 for source in (root / 'app/src-mirror').rglob('*.kt'):

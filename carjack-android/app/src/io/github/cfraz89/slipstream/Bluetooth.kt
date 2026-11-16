@@ -238,7 +238,7 @@ class Bluetooth(
     fun relink(device: BluetoothDevice) {
         Log.i(TAG, "Relinking ${device.address}")
         when {
-            !Variant.canPage() -> Variant.cycleBluetooth()
+            !Variant.canPage() -> if (!Variant.cycleBluetooth()) dial(device)
             Variant.isConnected(device) -> {
                 Variant.disconnect(device)
                 handler.postDelayed({ Variant.connect(device) }, 1000)

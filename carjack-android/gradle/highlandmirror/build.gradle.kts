@@ -6,7 +6,7 @@ plugins {
 val app = rootDir.resolve("app")
 val transport = listOf(
     "AccessoryWifi", "AudioOutputSettings", "AudioStream", "Bluetooth", "Cues", "Fingers",
-    "Native", "NavBar", "Relay", "ScreenStream", "Session", "SlipstreamService", "Touch",
+    "Native", "NavBar", "NetworkIdentity", "Relay", "ScreenStream", "Session", "SlipstreamService", "Touch",
 )
 val transportSources = layout.buildDirectory.dir("generated/mirror-transport")
 val prepareTransport = tasks.register<Sync>("prepareMirrorTransport") {
@@ -22,8 +22,8 @@ android {
         applicationId = "io.github.blazinsheath.highlandmirror"
         minSdk = 34
         targetSdk = 36
-        versionCode = 10001
-        versionName = "0.1.0-preview.1"
+        versionCode = 10002
+        versionName = "0.1.0-preview.2"
         ndk.abiFilters += "arm64-v8a"
     }
     sourceSets["main"].apply {
@@ -43,4 +43,9 @@ android {
 }
 
 tasks.named("preBuild") { dependsOn(":cargoNdk", prepareTransport) }
-dependencies { testImplementation("junit:junit:4.13.2") }
+// The shared launcher uses the same SDK-36-compatible metadata override as Slipstream.
+tasks.matching { it.name.matches(Regex("check.*AarMetadata")) }.configureEach { enabled = false }
+dependencies {
+    implementation(project(":launcher"))
+    testImplementation("junit:junit:4.13.2")
+}

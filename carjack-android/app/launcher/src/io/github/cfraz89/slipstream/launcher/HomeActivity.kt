@@ -121,6 +121,7 @@ class HomeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.setDecorFitsSystemWindows(false)
         pendingSlot = savedInstanceState?.getInt(STATE_PENDING_SLOT, -1) ?: -1
         nowPlaying = NowPlaying(this)

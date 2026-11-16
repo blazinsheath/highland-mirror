@@ -26,11 +26,14 @@ object MirrorLogs {
                 val file = File(dir, "mirror-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".zip")
                 ZipOutputStream(file.outputStream()).use { zip ->
                     zip.putNextEntry(ZipEntry("info.txt"))
-                    zip.write(("Highland Mirror 0.1.0-preview.1\n" +
+                    @Suppress("DEPRECATION")
+                    val version = activity.packageManager.getPackageInfo(activity.packageName, 0).versionName
+                    zip.write(("Highland Mirror $version\n" +
                         "Android ${android.os.Build.VERSION.RELEASE}; ${android.os.Build.MODEL}\n" +
                         "Status: ${Variant.setting(activity, "status", "")}\n" +
+                        "Last session: ${Variant.setting(activity, "last_connection_status", "")}\n" +
                         "Audio: ${AudioOutputSettings.read(activity)}\n" +
-                        "Projection: ${MirrorProjection.active}; touch: ${MirrorControlService.available()}\n" +
+                        "Projection: ${MirrorProjection.active}; touch: ${MirrorControlService.available()}; video started: ${Variant.prefs(activity).getBoolean("video_started", false)}\n" +
                         "No saved video, audio or screen-content inspection.\n").toByteArray())
                     zip.closeEntry()
                     activity.filesDir.listFiles { _, name -> name == Variant.LOG_FILE || name.startsWith(Variant.LOG_FILE + ".") }

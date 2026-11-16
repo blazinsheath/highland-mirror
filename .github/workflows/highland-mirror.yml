@@ -41,7 +41,7 @@ jobs:
           docker run --rm --volume "$GITHUB_WORKSPACE:/src:ro" highland-mirror-build \
             /opt/android-sdk/build-tools/36.0.0/aapt2 dump badging "/src/$apk" | tee target/mirror-apk-info.txt
           grep -F "package: name='io.github.blazinsheath.highlandmirror'" target/mirror-apk-info.txt
-          grep -F "versionName='0.1.0-preview.1'" target/mirror-apk-info.txt
+          grep -F "versionName='0.1.0-preview.2'" target/mirror-apk-info.txt
           if grep -Ei 'shizuku|INJECT_EVENTS|CAPTURE_AUDIO_OUTPUT|READ_LOGS|WRITE_SECURE_SETTINGS' target/mirror-apk-info.txt; then
             echo 'Unexpected privileged permission or helper'; exit 1
           fi

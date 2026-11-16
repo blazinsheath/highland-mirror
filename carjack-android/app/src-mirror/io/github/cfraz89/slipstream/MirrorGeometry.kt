@@ -18,10 +18,6 @@ object MirrorGeometry {
     }
 
     fun mac(value: String): String? {
-        val address = value.trim().uppercase(java.util.Locale.ROOT)
-        if (!Regex("(?:[0-9A-F]{2}:){5}[0-9A-F]{2}").matches(address)) return null
-        if (address == "00:00:00:00:00:00" || address == "02:00:00:00:00:00" ||
-            (address.substring(0, 2).toInt(16) and 1) != 0) return null
-        return address
+        return NetworkIdentity.usableMac(value)
     }
 }

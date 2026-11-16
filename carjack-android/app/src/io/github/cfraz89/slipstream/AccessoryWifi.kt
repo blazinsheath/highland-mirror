@@ -60,23 +60,29 @@ class AccessoryWifi(context: Context, private val handler: Handler) {
         }
 
         /** The address the interface joined with, which is randomised per network. */
-        private fun mac(iface: String, info: WifiInfo?): String {
+        private fun mac(iface: String, info: WifiInfo?, link: LinkProperties): String {
             try {
                 val mac = File("/sys/class/net/$iface/address").readText(Charsets.US_ASCII).trim()
-                if (mac.isNotEmpty()) return mac.uppercase()
+                NetworkIdentity.usableMac(mac)?.let { return it }
             } catch (ignored: IOException) {
             } catch (ignored: SecurityException) {
             }
             val reported = info?.macAddress
-            if (reported != null && reported != HIDDEN_MAC) return reported.uppercase()
+            NetworkIdentity.usableMac(reported)?.let { return it }
             try {
                 val hw = NetworkInterface.getByName(iface)?.hardwareAddress
                 if (hw != null && hw.size == 6) {
-                    return hw.joinToString(":") { "%02X".format(it) }
+                    NetworkIdentity.usableMac(hw.joinToString(":") { "%02X".format(it) })?.let { return it }
                 }
             } catch (ignored: SocketException) {
             }
-            Variant.interfaceMac(iface)?.let { return it.uppercase() }
+            NetworkIdentity.usableMac(Variant.interfaceMac(iface))?.let { return it }
+            for (address in link.linkAddresses) {
+                NetworkIdentity.macFromLinkLocal(address.address.address)?.let {
+                    Log.i(TAG, "Recovered the joined WiFi address from its link-local interface ID")
+                    return it
+                }
+            }
             Log.w(TAG, "No MAC address for $iface")
             return HIDDEN_MAC
         }
@@ -94,11 +100,12 @@ class AccessoryWifi(context: Context, private val handler: Handler) {
     fun join(ssid: String, passphrase: String?, bssid: String?, result: Result) {
         leave()
         pending = result
+        val credential = NetworkIdentity.passphrase(ssid, passphrase)
         @Suppress("DEPRECATION")
         if (!wifi.isWifiEnabled) wifi.isWifiEnabled = true
         // The phone's WiFi switched over where the variant can, else a local-only second network.
         SHELL.execute {
-            val primary = Variant.joinPrimary(ssid, passphrase)
+            val primary = Variant.joinPrimary(ssid, credential)
             handler.post {
                 if (pending !== result) {
                     if (primary) SHELL.execute { Variant.leavePrimary(ssid) }
@@ -112,7 +119,7 @@ class AccessoryWifi(context: Context, private val handler: Handler) {
                             .build(),
                     )
                 } else {
-                    joinLocalOnly(ssid, passphrase, bssid)
+                    joinLocalOnly(ssid, credential, bssid)
                 }
             }
         }
@@ -175,9 +182,12 @@ class AccessoryWifi(context: Context, private val handler: Handler) {
         if (pending == null || caps == null || link == null) return
         val iface = link.interfaceName ?: return
         if (!hasUsableAddress(link)) return
-        connectivity.bindProcessToNetwork(network)
+        if (!connectivity.bindProcessToNetwork(network)) {
+            answer(null, "Android could not route the connection to the vehicle")
+            return
+        }
         multicast = wifi.createMulticastLock("carjack").also { it.acquire() }
-        answer(iface, mac(iface, caps.transportInfo as? WifiInfo))
+        answer(iface, mac(iface, caps.transportInfo as? WifiInfo, link))
     }
 
     private fun answer(iface: String?, detail: String) {

@@ -116,6 +116,7 @@ void main() { gl_FragColor = texture2D(cue, uv) * alpha; }
     private lateinit var quad: FloatBuffer
     private val matrix = FloatArray(16)
     private var haveFrame = false
+    private var receivedFrames = 0L
     private var lastDrawMs = 0L
     private var lastTimestampNs = 0L
     private var pendingCapture: ((Bitmap) -> Unit)? = null
@@ -250,6 +251,7 @@ void main() { gl_FragColor = texture2D(cue, uv) * alpha; }
         t.updateTexImage()
         t.getTransformMatrix(matrix)
         haveFrame = true
+        if (++receivedFrames == 1L) android.util.Log.i("carjack", "First display capture frame received by video relay")
         render(t.timestamp)
     }
 

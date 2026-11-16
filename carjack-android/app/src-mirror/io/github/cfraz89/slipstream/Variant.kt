@@ -21,8 +21,13 @@ object Variant {
     const val PREFS = "highland-mirror"
     const val LOG_FILE = "mirror.log"
     val NOTIFICATION_ICON = R.drawable.ic_mirror
-    val REPORTER: Native.Reporter? = null
-    private var app: Context? = null
+    val REPORTER = Native.Reporter { _, target, message ->
+        if (target == "libcarjack::airplay" && message.contains("RECORD sent, streaming video")) {
+            app?.let { prefs(it).edit().putBoolean("video_started", true)
+                .putString("status", "Connected — mirroring your phone").apply() }
+        }
+    }
+    @Volatile private var app: Context? = null
     private var logcat: java.lang.Process? = null
 
     fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -33,7 +38,8 @@ object Variant {
     }
     fun prepare(context: Context) {
         app = context.applicationContext
-        prefs(context).edit().putBoolean("on", true).putBoolean("linked", false).apply()
+        prefs(context).edit().putBoolean("on", true).putBoolean("linked", false)
+            .putBoolean("video_started", false).apply()
         if (logcat == null) try {
             logcat = ProcessBuilder("logcat", "-v", "time", "-T", "1", "-f",
                 File(context.filesDir, LOG_FILE).path, "-r", "1024", "-n", "2", "*:I").start()
@@ -54,7 +60,14 @@ object Variant {
         return Service.START_NOT_STICKY
     }
     fun onStatus(context: Context, text: String, retryable: Boolean) {
-        prefs(context).edit().putString("status", text).putBoolean("retryable", retryable).apply()
+        val shown = when {
+            text.startsWith("Streaming at") -> "Preparing your phone picture…"
+            text.startsWith("Session ended") -> "Connection interrupted. Retry the vehicle connection."
+            else -> text
+        }
+        val edit = prefs(context).edit().putString("status", shown).putBoolean("retryable", retryable)
+        if (text.startsWith("Session ended")) edit.putBoolean("video_started", false).putString("last_connection_status", text)
+        edit.apply()
     }
     fun onLinked(context: Context, linked: Boolean) {
         prefs(context).edit().putBoolean("linked", linked).apply()
@@ -65,7 +78,8 @@ object Variant {
     fun onServiceDestroyed(service: Service) {
         MirrorProjection.stop()
         val prefs = prefs(service)
-        val edit = prefs.edit().putBoolean("on", false).putBoolean("streaming", false).putBoolean("stopping", false)
+        val edit = prefs.edit().putBoolean("on", false).putBoolean("streaming", false)
+            .putBoolean("video_started", false).putBoolean("stopping", false)
         if (prefs.getBoolean("stopping", false)) edit.putString("status", "Stopped. Tap Start for a new session.")
         edit.apply()
     }
@@ -109,7 +123,7 @@ object Variant {
     }
     fun key(context: Context, code: Int) = key(context, code, true)
     fun switchgear(context: Context, code: Int, down: Boolean) = key(context, code, down)
-    fun goHome(context: Context) = MirrorControlService.global(AccessibilityService.GLOBAL_ACTION_HOME)
+    fun goHome(context: Context) = MirrorControlService.home()
 }
 
 // Encoder preview hooks intentionally discard pixels; this app mirrors private phone content.
