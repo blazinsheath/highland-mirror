@@ -1,8 +1,8 @@
 package io.github.cfraz89.slipstream
 
-/** Small, versioned protocol on an app-private abstract Unix socket, never a network port. */
+/** Small, versioned protocol on an authenticated loopback-only connection. */
 object MirrorHelperProtocol {
-    const val VERSION = 1
+    const val VERSION = 2
     const val HELLO = 1
     const val AUDIO = 2
     const val OK = 0

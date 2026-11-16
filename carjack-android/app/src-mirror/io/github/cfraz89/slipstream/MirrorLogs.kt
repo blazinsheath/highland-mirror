@@ -34,10 +34,12 @@ object MirrorLogs {
                         "Last session: ${Variant.setting(activity, "last_connection_status", "")}\n" +
                         "Audio: ${AudioOutputSettings.read(activity)}\n" +
                         "Built-in helper: ${MirrorHelper.ready}; ${Variant.setting(activity, "helper_status", "")}\n" +
+                        "Helper pairing saved: ${Variant.prefs(activity).getBoolean("helper_paired", false)}; phase: ${Variant.setting(activity, "helper_phase", "")}\n" +
+                        "Helper failure: ${Variant.setting(activity, "helper_error_type", "")}; recovery: ${Variant.setting(activity, "helper_recovery", "")}\n" +
                         "Projection: ${MirrorProjection.active}; touch: ${MirrorControlService.available()}; video started: ${Variant.prefs(activity).getBoolean("video_started", false)}\n" +
                         "No saved video, audio or screen-content inspection.\n").toByteArray())
                     zip.closeEntry()
-                    activity.filesDir.listFiles { _, name -> name == Variant.LOG_FILE || name.startsWith(Variant.LOG_FILE + ".") }
+                    activity.filesDir.listFiles { _, name -> name == "helper.log" || name == Variant.LOG_FILE || name.startsWith(Variant.LOG_FILE + ".") }
                         ?.forEach { log ->
                             zip.putNextEntry(ZipEntry(log.name)); log.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
                         }

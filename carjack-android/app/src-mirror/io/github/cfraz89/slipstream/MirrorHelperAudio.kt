@@ -1,15 +1,15 @@
 package io.github.cfraz89.slipstream
 
-import android.net.LocalSocket
 import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.util.Log
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.net.Socket
 
-/** PCM travels over a local socket, so the helper survives the handover to the vehicle Wi-Fi. */
+/** PCM travels over authenticated loopback, surviving the handover to the vehicle Wi-Fi. */
 class MirrorHelperAudio {
-    private var socket: LocalSocket? = null
+    private var socket: Socket? = null
     private var destination: ParcelFileDescriptor.AutoCloseOutputStream? = null
     private var owner = 0L
 
@@ -17,7 +17,7 @@ class MirrorHelperAudio {
         stop()
         owner = token
         if (!MirrorHelperProtocol.validAudio(sampleRate, channels)) return null
-        var client: LocalSocket? = null
+        var client: Socket? = null
         var pipe: Array<ParcelFileDescriptor>? = null
         try {
             client = MirrorHelper.openSocket()

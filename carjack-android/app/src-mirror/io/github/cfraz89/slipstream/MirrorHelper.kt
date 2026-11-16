@@ -8,39 +8,77 @@ import android.app.RemoteInput
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.LocalSocket
-import android.net.LocalSocketAddress
 import android.os.Handler
 import android.os.Looper
-import android.os.Process
 import android.util.Log
 import io.github.muntashirakon.adb.android.AdbMdns
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
-import java.util.UUID
+import java.io.File
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/** Own-phone ADB is used only to start the helper; media uses authenticated local Unix sockets. */
+/** Own-phone ADB starts the helper; mutually authenticated loopback carries media and lifetime. */
 object MirrorHelper {
     private const val CHANNEL = "helper-pairing"
     private const val NOTICE = 42
     const val CODE = "pairing_code"
     private val main = Handler(Looper.getMainLooper())
     private val work = Executors.newSingleThreadExecutor()
+    private val launches = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "mirror-helper-launch").apply { isDaemon = true }
+    }
     private var manager: MirrorAdbKeys? = null // Access only from work.
     private var pairing: AdbMdns? = null // Access only from main.
     @Volatile private var pairingPort = 0
-    @Volatile private var name = ""
-    @Volatile private var control: LocalSocket? = null
+    @Volatile private var localPort = 0
+    @Volatile private var secret = ByteArray(0)
+    @Volatile private var control: Socket? = null
+    private var phase = MirrorHelperRecovery.Phase.IDENTITY
     @Volatile var ready = false
         private set
     val audio = MirrorHelperAudio()
 
     private fun state(context: Context, text: String) {
         Variant.prefs(context).edit().putString("helper_status", text).apply()
+    }
+    private fun stage(context: Context, value: MirrorHelperRecovery.Phase, text: String) {
+        phase = value
+        Variant.prefs(context).edit().putString("helper_phase", value.name).putString("helper_error_type", "")
+            .putString("helper_recovery", "").apply()
+        state(context, text)
+        Log.i("carjack", "Built-in helper step: ${value.name}")
+    }
+    private fun failure(context: Context, error: Exception) {
+        val causes = generateSequence<Throwable>(error) { it.cause }.take(8).toList()
+        val rejected = causes.any { it.javaClass.simpleName in listOf("AdbAuthenticationFailedException", "AdbPairingRequiredException") }
+        val paired = Variant.prefs(context).getBoolean("helper_paired", false)
+        val advice = MirrorHelperRecovery.message(paired, phase, rejected)
+        Variant.prefs(context).edit().putString("helper_error_type", causes.joinToString(" > ") { it.javaClass.simpleName })
+            .putString("helper_recovery", MirrorHelperRecovery.action(paired, phase, rejected).name)
+            .putString("helper_status", advice).apply()
+        // Persist startup failures even before a CarPlay service exists. Never record PINs or launch secrets.
+        val report = buildString {
+            append("${java.util.Date()} phase=${phase.name} paired=$paired\n")
+            for (cause in causes) {
+                append(cause.javaClass.name).append('\n')
+                cause.stackTrace.take(20).forEach { append("  at ").append(it).append('\n') }
+            }
+        }
+        synchronized(this) {
+            runCatching {
+                val file = File(context.filesDir, "helper.log")
+                if (file.length() > 262144) file.writeText("", Charsets.UTF_8)
+                file.appendText(report, Charsets.UTF_8)
+            }
+        }
+        Log.w("carjack", "Built-in helper failed at ${phase.name}: ${causes.joinToString(" > ") { it.javaClass.simpleName }}")
     }
     private fun adb(context: Context) = manager ?: MirrorAdbKeys(context.applicationContext).also { manager = it }
 
@@ -49,8 +87,7 @@ object MirrorHelper {
         work.execute {
             val ok = try { connectAndStart(app); true }
             catch (e: Exception) {
-                Log.w("carjack", "Built-in helper setup: ${e.javaClass.simpleName}")
-                state(app, "Helper unavailable. Enable Wireless debugging, then retry; pair once if needed.")
+                failure(app, e)
                 false
             }
             main.post { result(ok) }
@@ -58,43 +95,77 @@ object MirrorHelper {
     }
 
     private fun discover(context: Context): Int {
+        stage(context, MirrorHelperRecovery.Phase.DISCOVERY, "Finding the saved debugging connection…")
         val found = CountDownLatch(1)
         var port = 0
         val discovery = AdbMdns(context, AdbMdns.SERVICE_TYPE_TLS_CONNECT) { _, changed ->
             if (changed in 1..65535) { port = changed; found.countDown() }
         }
-        main.post { discovery.start() }
+        main.post { runCatching { discovery.start() } }
         try { if (!found.await(10, TimeUnit.SECONDS)) throw IOException("Wireless debugging not found") }
-        finally { main.post { discovery.stop() } }
+        finally { main.post { runCatching { discovery.stop() } } }
         return port
     }
 
+    private fun systemPort(): Int? = try {
+        // Some builds expose their current TLS port to apps; absence simply falls back to NSD.
+        val process = ProcessBuilder("/system/bin/getprop", "service.adb.tls.port").start()
+        if (!process.waitFor(500, TimeUnit.MILLISECONDS)) { process.destroy(); null }
+        else process.inputStream.bufferedReader().use { MirrorHelperProtocol.port(it.readText().trim()) }
+    } catch (_: Exception) { null }
+
     private fun connectAndStart(context: Context) {
         if (ready && control != null) return
-        state(context, "Starting the built-in helper…")
+        stage(context, MirrorHelperRecovery.Phase.IDENTITY, "Loading the saved helper identity…")
         val connection = adb(context)
         var connected = false
-        val cached = Variant.prefs(context).getInt("helper_connect_port", 0)
-        if (cached in 1..65535) try { connected = connection.connect("127.0.0.1", cached) || connection.isConnected }
-        catch (_: Exception) { runCatching { connection.disconnect() } }
+        val prefs = Variant.prefs(context)
         try {
+            val ports = listOf(prefs.getInt("helper_connect_override", 0), systemPort() ?: 0,
+                prefs.getInt("helper_connect_port", 0)).filter { it in 1..65535 }.distinct()
+            for (port in ports) {
+                stage(context, MirrorHelperRecovery.Phase.CONNECT, "Connecting with the saved pairing…")
+                try {
+                    connection.disconnect()
+                    connected = connection.connect("127.0.0.1", port)
+                    if (connected) { prefs.edit().putInt("helper_connect_port", port).apply(); break }
+                } catch (_: Exception) { runCatching { connection.disconnect() } }
+            }
             if (!connected) {
                 val port = discover(context)
-                connected = connection.connect("127.0.0.1", port) || connection.isConnected
-                if (connected) Variant.prefs(context).edit().putInt("helper_connect_port", port).apply()
+                stage(context, MirrorHelperRecovery.Phase.CONNECT, "Connecting with the saved pairing…")
+                connection.disconnect()
+                connected = connection.connect("127.0.0.1", port)
+                if (connected) prefs.edit().putInt("helper_connect_port", port).apply()
             }
             check(connected) { "Wireless debugging needs pairing" }
-            val socketName = "highland." + UUID.randomUUID().toString().replace("-", "")
-            name = socketName
+            // Reserve an OS-selected loopback port, then transfer ownership to the shell helper.
+            // Mutual authentication rejects an unrelated listener if the port is taken in between.
+            localPort = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
+            val launchSecret = MirrorHelperLink.newSecret()
+            secret = MirrorHelperLink.key(launchSecret)
+            stage(context, MirrorHelperRecovery.Phase.LAUNCH, "Pairing saved · starting the built-in helper…")
             val command = "trap '' HUP; CLASSPATH=" + MirrorHelperProtocol.quote(context.applicationInfo.sourceDir) +
                 " app_process /system/bin io.github.cfraz89.slipstream.MirrorShellMain " +
-                MirrorHelperProtocol.quote(socketName) + " " + Process.myUid() + " </dev/null >/dev/null 2>&1 &"
-            connection.openStream("shell:$command").use { stream ->
-                // Only a fixed launch command is sent; no user input, pairing code or audio is logged.
-                stream.openInputStream().use { it.readBytes() }
+                localPort + " " + MirrorHelperProtocol.quote(launchSecret) + " </dev/null >/dev/null 2>&1 &"
+            val transport = checkNotNull(connection.adbConnection)
+            val launch = launches.submit<Unit> {
+                connection.openStream("shell:$command").use { stream ->
+                    // The command, pairing PIN and launch secret are never included in diagnostics.
+                    stream.openInputStream().use { it.readBytes() }
+                }
+                Unit
             }
-            var client: LocalSocket? = null
-            for (attempt in 0 until 30) {
+            try { launch.get(15, TimeUnit.SECONDS) }
+            catch (e: java.util.concurrent.TimeoutException) {
+                // A library OPEN-answer race must not leave Start (or all later pairing attempts) wedged.
+                launch.cancel(true)
+                runCatching { transport.close() }
+                throw IOException("Helper launch timed out", e)
+            }
+            stage(context, MirrorHelperRecovery.Phase.LINK, "Connecting to the built-in helper…")
+            var client: Socket? = null
+            for (attempt in 0 until 100) {
                 try { client = openSocket(); break } catch (_: IOException) { Thread.sleep(100) }
             }
             val owner = client ?: throw IOException("Helper process did not start")
@@ -103,10 +174,12 @@ object MirrorHelper {
                 output.writeInt(MirrorHelperProtocol.VERSION); output.writeInt(MirrorHelperProtocol.HELLO); output.flush()
                 val input = DataInputStream(owner.inputStream)
                 check(input.readInt() == MirrorHelperProtocol.VERSION)
+                stage(context, MirrorHelperRecovery.Phase.PHONE_ID, "Detecting phone Bluetooth identity…")
                 val bt = NetworkIdentity.usableMac(input.readUTF()) ?: throw IOException("Phone Bluetooth identity unavailable")
                 Variant.prefs(context).edit().putString("phone_bt", bt).putBoolean("helper_paired", true).apply()
                 owner.soTimeout = 0
                 control = owner; ready = true
+                prefs.edit().putString("helper_phase", "READY").apply()
                 state(context, "Built-in helper ready · phone identity detected")
                 Log.i("carjack", "Bundled shell helper connected; phone identity detected automatically")
                 Thread({
@@ -124,12 +197,16 @@ object MirrorHelper {
         } finally { runCatching { connection.disconnect() } }
     }
 
-    fun openSocket(): LocalSocket {
-        val client = LocalSocket()
+    fun openSocket(): Socket {
+        val port = localPort
+        val key = secret
+        check(port in 1..65535 && key.size == 32) { "Helper is not running" }
+        val client = Socket()
         try {
-            client.connect(LocalSocketAddress(name, LocalSocketAddress.Namespace.ABSTRACT))
-            check(client.peerCredentials.uid == MirrorHelperProtocol.SHELL_UID) { "Unexpected helper owner" }
+            client.connect(InetSocketAddress("127.0.0.1", port), 1500)
             client.soTimeout = 10000
+            client.tcpNoDelay = true
+            MirrorHelperLink.client(client, key)
             return client
         } catch (e: Exception) { client.close(); throw e }
     }
@@ -138,6 +215,7 @@ object MirrorHelper {
         ready = false
         val previous = control; control = null
         audio.stop(); runCatching { previous?.close() }
+        localPort = 0; secret = ByteArray(0)
     }
 
     fun beginPairing(context: Context) {
@@ -176,17 +254,17 @@ object MirrorHelper {
         val app = context.applicationContext
         work.execute {
             try {
+                stage(app, MirrorHelperRecovery.Phase.PAIR, "Pairing the built-in helper…")
                 require(MirrorHelperProtocol.pairingCode(code)) { "Enter six digits" }
                 val port = manualPort ?: pairingPort.takeIf { it in 1..65535 } ?: throw IOException("Keep pairing dialog open")
-                state(app, "Pairing the built-in helper…")
                 check(adb(app).pair("127.0.0.1", port, code))
                 Variant.prefs(app).edit().putBoolean("helper_paired", true).apply()
+                state(app, "Pairing saved · return to Highland Mirror and tap Start")
                 main.post { pairing?.stop(); pairing = null; pairingPort = 0
                     app.getSystemService(NotificationManager::class.java).cancel(NOTICE) }
-                connectAndStart(app)
+                // Start is a separate operation. Returning to the app also keeps it in the foreground.
             } catch (e: Exception) {
-                Log.w("carjack", "Built-in pairing failed: ${e.javaClass.simpleName}")
-                state(app, "Pairing did not finish. Keep Android’s pairing dialog open and retry with its current code.")
+                failure(app, e)
             } finally { done() }
         }
     }

@@ -40,6 +40,10 @@ object Variant {
         app = context.applicationContext
         prefs(context).edit().putBoolean("on", true).putBoolean("linked", false)
             .putBoolean("video_started", false).apply()
+        initializeDiagnostics(context)
+    }
+    @Synchronized fun initializeDiagnostics(context: Context) {
+        app = context.applicationContext
         if (logcat == null) try {
             logcat = ProcessBuilder("logcat", "-v", "time", "-T", "1", "-f",
                 File(context.filesDir, LOG_FILE).path, "-r", "1024", "-n", "2", "*:I").start()

@@ -29,8 +29,10 @@ for source in (root / 'app/src-mirror').rglob('*.kt'):
     assert not re.search(r'import (?:rikka|moe)\.shizuku|Runtime\.getRuntime', source.read_text()), source
 helper = (root / 'app/src-mirror/io/github/cfraz89/slipstream/MirrorHelper.kt').read_text()
 shell = (root / 'app/src-mirror/io/github/cfraz89/slipstream/MirrorShellMain.kt').read_text()
-assert '"127.0.0.1"' in helper and 'peerCredentials.uid == MirrorHelperProtocol.SHELL_UID' in helper
-assert 'client.peerCredentials.uid != uid' in shell
+assert 'InetSocketAddress("127.0.0.1", port)' in helper
+assert 'ServerSocket(port, 4, InetAddress.getByName("127.0.0.1"))' in shell
+assert 'MirrorHelperLink.client(client, key)' in helper and 'MirrorHelperLink.server(client, key)' in shell
+assert 'Process.myUid() != MirrorHelperProtocol.SHELL_UID' in shell
 assert 'playback.stop(); exitProcess(0)' in shell
 receivers = {item.get(ns + 'name'): item for item in manifest.findall('application/receiver')}
 assert receivers['.MirrorPairingReceiver'].get(ns + 'exported') == 'false'

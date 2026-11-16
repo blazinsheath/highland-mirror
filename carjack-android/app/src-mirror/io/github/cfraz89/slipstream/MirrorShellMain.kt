@@ -1,13 +1,13 @@
 package io.github.cfraz89.slipstream
 
-import android.net.LocalServerSocket
-import android.net.LocalSocket
 import android.os.Process
 import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.util.Log
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 
@@ -15,21 +15,22 @@ import kotlin.system.exitProcess
 object MirrorShellMain {
     @JvmStatic fun main(args: Array<String>) {
         if (Process.myUid() != MirrorHelperProtocol.SHELL_UID || args.size != 2) exitProcess(1)
-        val uid = args[1].toIntOrNull()?.takeIf { it >= 10000 } ?: exitProcess(1)
-        if (!Regex("highland\\.[a-f0-9]{32}").matches(args[0])) exitProcess(1)
+        val port = MirrorHelperProtocol.port(args[0]) ?: exitProcess(1)
+        val key = try { MirrorHelperLink.key(args[1]) } catch (_: IllegalArgumentException) { exitProcess(1) }
         try { Os.setsid() } catch (_: Exception) { }
         val playback = PlaybackCapture(null) // The same REMOTE_SUBMIX implementation as Highland .6.
         val owner = AtomicBoolean(false)
-        Thread({ Thread.sleep(20000); if (!owner.get()) exitProcess(0) }, "helper-start-timeout").apply { isDaemon = true; start() }
+        Thread({ Thread.sleep(30000); if (!owner.get()) exitProcess(0) }, "helper-start-timeout").apply { isDaemon = true; start() }
         try {
-            LocalServerSocket(args[0]).use { server ->
+            ServerSocket(port, 4, InetAddress.getByName("127.0.0.1")).use { server ->
                 while (true) {
                     val client = server.accept()
-                    if (client.peerCredentials.uid != uid) { client.close(); continue }
                     Thread({
                         try {
                             client.use {
                                 client.soTimeout = 10000
+                                client.tcpNoDelay = true
+                                MirrorHelperLink.server(client, key)
                                 val input = DataInputStream(client.inputStream)
                                 val output = DataOutputStream(client.outputStream)
                                 check(input.readInt() == MirrorHelperProtocol.VERSION)

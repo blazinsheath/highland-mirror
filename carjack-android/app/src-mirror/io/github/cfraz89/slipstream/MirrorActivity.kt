@@ -25,6 +25,7 @@ import io.github.cfraz89.slipstream.launcher.HomeActivity
 class MirrorApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        Variant.initializeDiagnostics(this)
         Variant.prefs(this).edit().putBoolean("on", false).putBoolean("stopping", false)
             .putBoolean("streaming", false).putBoolean("video_started", false)
             .putString("status", "Ready to connect").apply()
@@ -99,6 +100,8 @@ class StartActivity : Activity() {
         target = text("Vehicle: automatic", 16f)
         button("Choose paired vehicle") { chooseHeadUnit() }
         button("Pairing code · manual fallback") { manualPairing() }
+        button("Debugging connection port · fallback") { connectionPort() }
+        button("Pair built-in helper again") { helperSetup(true) }
         button("Bluetooth settings") { openSettings(Settings.ACTION_BLUETOOTH_SETTINGS) }
         button("Wi-Fi settings") { openSettings(Settings.ACTION_WIFI_SETTINGS) }
         text("CFMOTO Wi-Fi connects automatically. Default password: 12345678. A different password supplied by the vehicle is used automatically.", 14f)
@@ -144,12 +147,46 @@ class StartActivity : Activity() {
             .setPositiveButton("Open accessibility settings") { _, _ -> openSettings(Settings.ACTION_ACCESSIBILITY_SETTINGS) }
             .setNegativeButton("Cancel", null).show()
     }
-    private fun helperSetup() {
+    private fun helperSetup(forcePair: Boolean = false) {
         if (MirrorProjection.active) { message("Stop mirroring before pairing the helper."); return }
+        if (!forcePair && Variant.prefs(this).getBoolean("helper_paired", false)) { helperProblem(); return }
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 9); return
         }
         showHelperGuide()
+    }
+    private fun helperProblem() {
+        val prefs = Variant.prefs(this)
+        val recovery = prefs.getString("helper_recovery", "").orEmpty()
+        if (recovery == "PAIR" || (recovery.isEmpty() && !prefs.getBoolean("helper_paired", false))) {
+            helperSetup(true); return
+        }
+        AlertDialog.Builder(this).setTitle("Pairing saved · start the helper")
+            .setMessage(prefs.getString("helper_status", "Keep Wireless debugging enabled and retry.") +
+                "\n\nA new pairing code is not needed. If automatic connection discovery fails, use the IP address & Port on the main Wireless debugging screen. Its connection port is different from the pairing-code dialog’s port.")
+            .setPositiveButton("Retry Start") { _, _ -> pendingStart = true; continueStart() }
+            .setNeutralButton("Connection port") { _, _ -> connectionPort() }
+            .setNegativeButton("Wireless debugging") { _, _ -> openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) }
+            .show()
+    }
+    private fun connectionPort() {
+        if (MirrorProjection.active) { message("Stop mirroring before changing the debugging connection."); return }
+        val saved = Variant.prefs(this).getInt("helper_connect_override", 0)
+        val input = EditText(this).apply {
+            hint = "Automatic (leave blank)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            if (saved in 1..65535) setText(saved.toString())
+        }
+        val dialog = AlertDialog.Builder(this).setTitle("Debugging connection port")
+            .setMessage("Enter only the number after the colon in IP address & Port on the MAIN Wireless debugging screen. Do not use the pairing-code dialog’s port. Leave blank for automatic discovery. This connects using the pairing already saved in this APK.")
+            .setView(input).setPositiveButton("Save and start", null).setNegativeButton("Cancel", null).create()
+        dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val entered = input.text.toString().trim()
+            val port = if (entered.isEmpty()) 0 else MirrorHelperProtocol.port(entered)
+            if (port == null) { input.error = "Enter a port from 1 to 65535, or leave blank"; return@setOnClickListener }
+            Variant.prefs(this).edit().putInt("helper_connect_override", port).apply()
+            dialog.dismiss(); pendingStart = true; continueStart()
+        } }
+        dialog.show()
     }
     private fun showHelperGuide() {
         AlertDialog.Builder(this).setTitle("One app · built-in helper")
@@ -213,7 +250,7 @@ class StartActivity : Activity() {
                 helperStarting = false
                 if (isDestroyed || isFinishing) return@ensure
                 refresh()
-                if (ok) continueStart() else { pendingStart = false; helperSetup() }
+                if (ok) continueStart() else { pendingStart = false; helperProblem() }
             }
             return
         }

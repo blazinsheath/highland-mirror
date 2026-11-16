@@ -1,4 +1,4 @@
-# Highland Mirror (preview 3)
+# Highland Mirror (preview 4 development)
 
 One APK for Samsung/Android phone mirroring to the CFMOTO U10 Pro Highland over wireless
 CarPlay. It includes the customizable Slipstream launcher and an owner-paired shell helper.
@@ -8,21 +8,21 @@ selected to recover the audio capture and automatic phone identity used in worki
 ## Setup
 
 1. Install the signed update over Highland Mirror preview 2 to retain setup and app shortcuts.
-   **[Direct preview 3 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.3/Highland-Mirror-0.1.0-preview.3.apk)**.
-   APK SHA-256: `c040b8bbe8873d499a8dff585a0ccdc0c62eeaa96aba9b17469331aabf18da2f`.
+   Preview 4 is being validated. It preserves the app identity and existing debugging pairing.
 2. End the old Slipstream session. Connect the phone to Wi-Fi. Open Highland Mirror and choose
    **Set up built-in helper**. If necessary enable Samsung Developer options by tapping
    About phone > Software information > Build number seven times.
 3. Open Developer options > Wireless debugging, enable it, and choose **Pair device with
    pairing code**. Keep the dialog open, pull down notifications and reply to Highland Mirror's
    notification with its six-digit code. The app discovers the local pairing port automatically.
-   Return to the app and tap Start. If notifications are disabled or discovery is unavailable,
+   Pairing success is reported separately; return to the app and tap Start. If notifications are disabled,
    **Settings & help > Pairing code > manual fallback** accepts the pairing port/code while
    Android's dialog stays visible in split screen. No phone Bluetooth address is typed.
 4. Pairing keys stay in this app's private, non-backed-up storage. Pairing is saved, but Android
    may disable Wireless debugging after restarting or changing networks; enable it again when
    asked. The helper needs debugging only to start. PCM and lifetime control use authenticated
-   local Unix sockets, so they do not depend on the ADB connection during vehicle Wi-Fi handover.
+   loopback TCP sockets with per-launch mutual HMAC authentication, so they do not depend on
+   the ADB connection during vehicle Wi-Fi handover. The listener binds only 127.0.0.1.
 5. Tap Start, approve Android screen sharing and accept the vehicle Wi-Fi request. A sole paired
    CFMOTO is selected automatically. The vehicle's supplied Wi-Fi password takes priority;
    CFMOTO networks with no supplied credential use 12345678. The phone's actual Bluetooth
@@ -35,6 +35,30 @@ selected to recover the audio capture and automatic phone identity used in worki
    the phone locks. Physical-display-off operation is not implemented or verified. The home page
    uses landscape; other apps follow their phone orientation. Open apps change the phone too.
 
+## Pairing-loop correction in preview 4
+
+The owner confirmed this app was already listed under Android's paired devices. Preview 3
+incorrectly sent every helper startup failure back to the pairing guide and combined pairing
+and startup under one error message. A failed connection discovery, helper launch or local
+connection must not request another pairing code.
+
+Preview 4 preserves saved pairing on these failures, gives stage-specific recovery, and offers
+Retry or a fallback debugging connection port from the main Wireless debugging screen. That
+connection port differs from the temporary pairing dialog's port. It tries the current TLS
+port property where accessible, saved ports and then NSD discovery automatically.
+
+Preview 3 also attempted an app-to-shell abstract Unix connection; stock Android policy does
+not grant that cross-domain connection. The helper now uses mutually authenticated loopback
+TCP. Only a peer proving the per-launch secret receives phone identity or audio. No listener
+is reachable from the vehicle network. There is no additional app or permission to install.
+
+The owner's new ZIP had a preview-3 info header but only older preview-2 detailed logs: logging
+was initialized only after the CarPlay service started, hiding setup failures. Logging now
+starts with the app, and setup stage/error classes plus bounded sanitized stack traces are
+saved before a vehicle session exists. A new code is requested only for missing/rejected
+pairing or an explicit Pair again action. The precise preview-3 failing step was not present
+in that ZIP; hardware verification of the corrections is still required.
+
 ## Audio and connection
 
 Preview 2's new device log reached RECORD, video and continuous audio RTP transmission, but
@@ -45,8 +69,9 @@ can filter media and does not force phone output away from the local speaker.
 Preview 3 shares the exact shell-UID PlaybackCapture source used in that working fork:
 REMOTE_SUBMIX, shell attribution, PCM16 and the negotiated sample rate/channel count. The
 helper is code inside this APK, launched with app_process after authorized same-device ADB
-pairing. Both ends verify Unix peer credentials; a randomized abstract socket has no network
-listener. Closing the owner connection releases capture and exits the helper.
+pairing. The listener binds only 127.0.0.1, with mutual challenge/response authentication using
+an unpredictable per-launch secret. The secret and pairing PIN are never persisted or logged.
+Closing the owner connection releases capture and exits the helper.
 
 **Highland speakers / Phone** switches live without ending CarPlay. Phone closes the output
 capture and feeds silence to keep the vehicle stream alive. Numeric PCM peak levels are logged
@@ -70,12 +95,9 @@ New pairing dependencies are pinned: LibADB Android 3.1.1 (Apache-2.0 option), C
 source URLs and replacement/rebuild instructions are bundled under Settings & help >
 Open-source licenses and in app/mirror/assets/licenses. Upstream source/history/notices remain.
 
-Validation: [41 native + 16 Android tests passed](https://github.com/blazinsheath/slipstream-highland/actions/runs/43891547996).
-Package/version and permission-boundary checks passed. All four arm64 native libraries and
-APK offsets support 16-KB pages. Android apksigner independently verifies the final release
-signature. These checks do not replace a physical pairing/audio/touch test.
-Release source: `5d77c92011cde79b2782fe9b23a05aa0b0f12b8a`. The release also supplies the
-unmodified LGPL SPAKE2 source and exact native submodule for replacement/rebuilding.
+Preview 4 adds real loopback peer-authentication/PCM tests and pairing-recovery regression
+coverage. Its final build/signature result will be recorded after publication. Physical
+S25 Plus/Highland helper startup, audio and touch still need confirmation.
 
 Official updates retain release certificate SHA-256:
 `d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9`.
