@@ -25,7 +25,16 @@ impl AudioRecorder for Capture {
 
 #[tokio::test(flavor = "current_thread")]
 async fn aac_audio_reaches_udp_peer_and_decrypts_to_sound() {
-    let receiver = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    check_audio_udp("127.0.0.1:0").await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn aac_audio_reaches_ipv6_peer_and_decrypts_to_sound() {
+    check_audio_udp("[::1]:0").await;
+}
+
+async fn check_audio_udp(bind: &str) {
+    let receiver = UdpSocket::bind(bind).await.unwrap();
     let shared_secret = [0x42; 32];
     let stream_id = 13907476528139505886;
     let aac = AudioStreamBasicDescription::fill_aac_lc(44100, 2);

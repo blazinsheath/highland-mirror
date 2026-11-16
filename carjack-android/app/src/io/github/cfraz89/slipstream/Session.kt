@@ -48,7 +48,7 @@ class Session(
         val ours = pair[0]
         pump("carjack-iap-rx", socket.inputStream, FileOutputStream(ours.fileDescriptor), ours)
         pump("carjack-iap-tx", FileInputStream(ours.fileDescriptor), socket.outputStream, ours)
-        val audioMode = Variant.setting(context, "audio", "bluetooth")
+        val audioMode = Variant.setting(context, "audio", "speakers")
         carPlayAudioEnabled = audioMode != "bluetooth"
         Log.i(TAG, "Starting session: audio=$audioMode, CarPlay audio enabled=$carPlayAudioEnabled")
         handle = Native.startSession(this, pair[1].detachFd(), name, address, codec, carPlayAudioEnabled)
@@ -93,7 +93,7 @@ class Session(
 
     private fun restartAudio() {
         if (ending) return
-        val mode = Variant.setting(context, "audio", "bluetooth")
+        val mode = Variant.setting(context, "audio", "speakers")
         val wantsCarPlayAudio = mode != "bluetooth"
         if (wantsCarPlayAudio != carPlayAudioEnabled) {
             audio?.stop()

@@ -100,7 +100,7 @@ fun HighlandAudioRow(onChange: () -> Unit) {
     val context = LocalContext.current
     val values = listOf("bluetooth", "speakers", "off", "test")
     val names = listOf("Bluetooth speakers", "Highland speakers (CarPlay)", "Phone speakers", "Speaker test tone (repeats for 30 seconds)")
-    val index = values.indexOf(Variant.setting(context, "audio", "bluetooth")).coerceAtLeast(0)
+    val index = values.indexOf(Variant.setting(context, "audio", "speakers")).coerceAtLeast(0)
     var choosing by remember { mutableStateOf(false) }
     ListRow(Leading.Glyph(R.drawable.ic_sl_remote), "Audio", names[index], trailing = { Chevron() }) {
         choosing = true

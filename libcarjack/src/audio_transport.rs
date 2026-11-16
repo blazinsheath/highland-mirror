@@ -7,6 +7,7 @@ use catplay_carplay::{
     clock::{MediaClockBox, MediaClockProxy, NtpU64},
     msg::{Setup, StreamDescriptionAudio, StreamDescriptionResponse, StreamType, TeardownPayload},
     rtp::{RTP_BUFFER_PAD, RTP_PACKET_MAX, record::RtpSessionTx},
+    rtsp_frame::{HttpHeader, HttpStatus, RtspMethod, RtspRequest},
 };
 use catplay_tokio::UdpHelper;
 use eyre::{Result, eyre};
@@ -26,6 +27,31 @@ pub struct AudioTransport {
 }
 
 impl AudioTransport {
+    /// Query gain on the existing control session. Never change an unknown gain or
+    /// raise a normal setting; only a reported mute receives a quiet -20 dB value.
+    pub async fn probe_receiver_volume(&self) {
+        let client = self.client.with_timeout(Duration::from_secs(1));
+        let mut query = RtspRequest::with_payload(RtspMethod::GetParameter, "/", b"volume\r\n");
+        query.set_header(HttpHeader::ContentType, "text/parameters");
+        let response = match client.request(query).await {
+            Ok(response) => response,
+            Err(error) => { tracing::warn!(?error, "Receiver volume query unavailable; leaving gain unchanged"); return; }
+        };
+        if response.status != HttpStatus::Ok {
+            tracing::info!(status=?response.status, "Receiver does not accept volume query; leaving gain unchanged");
+            return;
+        }
+        let volume_db = std::str::from_utf8(&response.payload).ok().and_then(parse_volume_db);
+        tracing::info!(?volume_db, "Receiver audio volume query result");
+        if !volume_db.is_some_and(|db| db <= -100.0) { return; }
+        let mut unmute = RtspRequest::with_payload(RtspMethod::SetParameter, "/", b"volume: -20.000000\r\n");
+        unmute.set_header(HttpHeader::ContentType, "text/parameters");
+        match client.request(unmute).await {
+            Ok(response) => tracing::info!(status=?response.status, requested_db=-20, "Receiver reported mute; sent quiet unmute request"),
+            Err(error) => tracing::warn!(?error, "Receiver unmute request failed"),
+        }
+    }
+
     pub fn from_streams(streams: &AirPlayTransmitterBootstrapStreams) -> Result<Self> {
         Ok(Self { client: streams.client.clone().ok_or_else(|| eyre!("Missing RTSP client"))?,
             bind: streams.bind_ip, peer: streams.peer_ip, cipher: streams.cipher,
@@ -70,6 +96,14 @@ impl AudioTransport {
         Ok(MediaAudioLink { _rtp: rtp, _sync: sync,
             client: self.client.clone(), stream_type: config.stream_type })
     }
+}
+
+fn parse_volume_db(parameters: &str) -> Option<f32> {
+    parameters.lines().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        if !name.trim().eq_ignore_ascii_case("volume") { return None; }
+        value.trim().parse::<f32>().ok().filter(|db| db.is_finite() && (-144.0..=0.0).contains(db))
+    })
 }
 
 /// CarPlay uses its negotiated stream type in the RTP payload field (102 for AAC music).
@@ -179,6 +213,15 @@ async fn publish_clock(socket: UdpSocket, clock: MediaClockBox, rate: u32, laten
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn receiver_gain_parser_rejects_unknown_invalid_and_nonfinite_values() {
+        assert_eq!(parse_volume_db("volume: -144.000000\r\n"), Some(-144.0));
+        assert_eq!(parse_volume_db("other: 1\r\nvolume: -12.0\r\n"), Some(-12.0));
+        assert_eq!(parse_volume_db("Volume: 0\r\n"), Some(0.0));
+        for invalid in ["", "unsupported", "volume: NaN", "volume: inf", "volume: 20", "volume: -145"] {
+            assert_eq!(parse_volume_db(invalid), None, "{invalid}");
+        }
+    }
     #[test]
     fn clock_anchor_encodes_network_order_latency_and_wrap() {
         let first = sync_packet(true, 0, 8820, NtpU64(0x123456789abcdef0));

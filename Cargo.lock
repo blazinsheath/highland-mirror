@@ -707,7 +707,6 @@ dependencies = [
 [[package]]
 name = "catplay_carplay"
 version = "0.1.0"
-source = "git+https://github.com/cfraz89/catplay.git?branch=master#2615e14b69230d04205e8de126b6d64346787cc0"
 dependencies = [
  "async-trait",
  "bitflags",

@@ -1,5 +1,6 @@
 [workspace]
 resolver = "3"
+exclude = ["vendor/catplay_carplay"]
 members = [
     "carjack-linux",
     "carjack-android",
@@ -15,6 +16,7 @@ default-members = ["carjack-linux"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 
-# Keep the working CarPlay transport pinned while supplying its missing AAC-LC encoder.
+# Retain the pinned transport, with a raw RTSP request entry point and AAC-LC encoder.
 [patch."https://github.com/cfraz89/catplay.git"]
 catplay_audio = { path = "vendor/catplay_audio" }
+catplay_carplay = { path = "vendor/catplay_carplay" }

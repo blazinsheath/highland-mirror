@@ -5,6 +5,38 @@ The owner confirmed that the Highland baseline APK connects and displays apps on
 Upstream sources, MIT/Apache-2.0 licenses, and the original main branch remain available.
 The Android application ID is io.github.blazinsheath.slipstream.highland.
 
+## Version 0.3.0-highland.6: start audio on the active CarPlay session
+
+The owner's fresh .5 test used Speaker test tone from connection start. The log confirms
+MainAudio ownership, accepted AAC SETUP, payload 102 with the first-packet marker, and continuous
+RTP/clock publication. The later Highland speakers selection started phone capture successfully.
+The vehicle was silent and its reported playback sample position stayed zero. There were no
+incoming audio-control replies in the log. None of those local send logs proves packet receipt.
+
+Version .6 sends RECORD and the first video frame before opening audio, reasserts MainAudio
+ownership on that active session, then negotiates audio in a separate task so video is not
+blocked by audio SETUP. The audio task retains its stream guard until the video session ends.
+Capture/tone generation starts only after audio setup succeeds. This tests startup ordering;
+physical Highland playback is not established by software checks.
+
+The active RTSP connection also gets a one-second receiver-volume query. An unsupported,
+missing or invalid result leaves gain unchanged. Only an explicitly reported mute (at most
+-100 dB) sends a quiet -20 dB unmute request. Response status and parsed gain are logged. The
+pinned catplay_carplay package is vendored with one additional request-forwarding method;
+pairing, video, encryption and packet framing remain the upstream implementations. See its
+README.highland.md for provenance. Volume protocol reference:
+https://openairplay.github.io/airplay-spec/audio/volume_control.html
+
+Tests now receive/decrypt/decode the production AAC sender over both IPv4 and IPv6 UDP, because
+the Highland uses IPv6 link-local transport. This verifies the software socket path, not the
+vehicle or Android network. Gain-parser tests reject malformed/nonfinite/out-of-range values.
+
+CarPlay speakers is again the default on fresh installs; saved settings are retained. The .5
+Bluetooth test showed the head unit terminating its Bluetooth link after CarPlay began, even
+with no CarPlay audio stream. Bluetooth was not a working simultaneous audio route on this
+vehicle. Select Speaker test tone before a fresh .6 connection, then Highland speakers (CarPlay)
+for music during the same connection. If silent, export a new log after that test.
+
 ## Version 0.3.0-highland.5: Bluetooth audio with CarPlay picture
 
 The new Bluetooth speakers option projects only the picture. It disables CarPlay audio SETUP,
@@ -96,8 +128,8 @@ NotSupported failure, without claiming the complete vehicle audio path has been 
   audio files are used. PCM is forwarded through JNI to the encrypted CarPlay RTP stream.
 - Starts capture only after audio SETUP and RECORD succeed, and closes capture when the session
   ends. A session token prevents an old disconnect from stopping a new session's capture.
-- Adds Settings > Audio: Bluetooth speakers (default for a fresh install), Highland speakers
-  (CarPlay), Phone speakers, or Speaker test tone. Bluetooth mode requires a fresh connection;
+- Adds Settings > Audio: Bluetooth speakers, Highland speakers (CarPlay, default on a fresh .6
+  install), Phone speakers, or Speaker test tone. Bluetooth mode requires a fresh connection;
   changes between the other sources apply live to an already-open CarPlay audio stream.
 - Retains the video-only path if the head unit does not advertise a supported audio format.
 - Calls, the vehicle microphone, and genuine Android Auto projection are not implemented.
@@ -115,15 +147,13 @@ https://github.com/Genymobile/scrcpy/blob/master/doc/audio.md
    Uninstalling clears that copy's settings. The original upstream Slipstream can stay installed.
 2. Start Shizuku and authorize Slipstream Highland. Restart Shizuku after replacing the APK
    so the updated helper (version 44) is loaded.
-3. In Highland settings choose Audio > Bluetooth speakers. End any other Slipstream session.
+3. In Highland settings choose Audio > Speaker test tone. End any other Slipstream session.
 4. While parked, connect as before with Bluetooth and Wi-Fi enabled and select CarPlay on the
-   CFMOTO. Open Samsung's Media output, select CFMOTO and play music. Adjust the Highland volume.
-   If CFMOTO cannot connect as an audio device while CarPlay is active, this firmware may prevent
-   the combination; Bluetooth-only playback outside a CarPlay session remains available.
-5. To test the separate CarPlay audio path, choose Highland speakers (CarPlay), end the session
-   and reconnect. Select Speaker test tone during this connection. Tone bursts repeat for
-   30 seconds; selecting it again replays them. Switch back to Highland speakers (CarPlay) for
-   music. These changes between CarPlay sources apply live.
+   CFMOTO. Adjust its media volume and listen for 30 seconds. Selecting Speaker test tone again
+   replays the sequence. This connection uses CarPlay audio; normal Bluetooth media is not used.
+5. Select Highland speakers (CarPlay) during the same connection and play ordinary music.
+   These changes between CarPlay sources apply live. Bluetooth mode is retained for other
+   configurations but did not work alongside projection on the owner's Highland.
 6. If the tone works but music does not, use Send logs after trying the music app. If the tone
    is also silent, Send logs captures the advertised formats and audio setup error for diagnosis.
 7. Confirm that ending the session restores normal phone/Bluetooth playback and that reconnecting

@@ -24,7 +24,7 @@ class AudioStream(private val context: Context, private val session: Long) {
             Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
             if (!running) return@Thread
             try {
-                when (Variant.setting(context, "audio", "bluetooth")) {
+                when (Variant.setting(context, "audio", "speakers")) {
                     "bluetooth" -> Unit // Never capture or generate sound in picture-only mode.
                     "test" -> testTone(sampleRate, channels)
                     "off" -> testTone(sampleRate, channels, true)

@@ -355,33 +355,12 @@ pub async fn run_media_stream(
     // Hold only RECORD, which is the promise that video is coming.
     let first_frame = wait_for_first_keyframe(&mut video_rx, &keyframe_tx).await?;
 
-    let mut audio_ready = None;
-    // Keep the guard alive for the entire session. Dropping it tears down the RTP stream.
-    let mut _media_audio = None;
-    let _audio_guard = if let Some(output) = audio {
-        if output.config.stream_type == catplay_carplay::msg::StreamType::MainHighAudio {
-            match audio_transport.setup(output.config, output.recorder).await {
-                Ok(link) => { _media_audio = Some(link); audio_ready = Some(output.ready); }
-                Err(error) => tracing::warn!(%error, "Media audio SETUP failed; video continues"),
-            }
-            None
-        } else { match tx.setup_audio(latency, output.config.stream_type, output.config.format,
-            output.config.audio_type, None, output.recorder).await {
-            Ok(guard) => {
-                tracing::info!(?output.config, "CarPlay speaker audio ready");
-                audio_ready = Some(output.ready);
-                Some(guard)
-            }
-            Err(error) => {
-                tracing::warn!(?error, "Audio SETUP failed; continuing the working video stream");
-                None
-            }
-        } }
-    } else { None };
-
     tx.record().await?;
-    if let Some(ready) = audio_ready { ready(); }
     tracing::info!("RECORD sent, streaming video");
+    let mut pending_audio = audio;
+    // Spawn only after the first video frame is accepted. The task retains its audio
+    // guard until the video session ends, and never blocks video on audio negotiation.
+    let mut _audio_task = None;
 
     let mut sent_keyframe = false;
     // Set while a keyframe request is outstanding, so a sustained stall asks once rather than
@@ -490,6 +469,15 @@ pub async fn run_media_stream(
             frames_sent += 1;
             sent_keyframe = true;
             requested_keyframe = false;
+            if let Some(output) = pending_audio.take() {
+                let tx = tx.clone();
+                let transport = audio_transport.clone();
+                _audio_task = Some(tokio_util::task::AbortOnDropHandle::new(tokio::spawn(async move {
+                    if let Err(error) = run_active_audio(tx, transport, modes.serialize_to_state(), output).await {
+                        tracing::warn!(%error, "Audio startup failed; video continues and phone capture is not started");
+                    }
+                })));
+            }
         }
 
         let elapsed = last_heartbeat.elapsed();
@@ -506,6 +494,30 @@ pub async fn run_media_stream(
     }
 
     tracing::info!("Video stream ended");
+    Ok(())
+}
+
+async fn run_active_audio(
+    tx: AirPlayTransmitterProxyRef,
+    transport: crate::audio_transport::AudioTransport,
+    modes: catplay_carplay::modes::AirPlayModeState,
+    output: crate::audio::AudioOutput,
+) -> Result<()> {
+    tracing::info!("Starting CarPlay audio after RECORD and the first video frame");
+    tx.assert_modes(modes).await?;
+    tracing::info!("Active CarPlay session acknowledged MainAudio ownership");
+    let mut _media_link = None;
+    let _pcm_link = if output.config.stream_type == catplay_carplay::msg::StreamType::MainHighAudio {
+        _media_link = Some(transport.setup(output.config, output.recorder).await?);
+        None
+    } else {
+        Some(tx.setup_audio(Duration::from_millis(100), output.config.stream_type,
+            output.config.format, output.config.audio_type, None, output.recorder).await?)
+    };
+    transport.probe_receiver_volume().await;
+    (output.ready)();
+    tracing::info!("Active-session audio SETUP complete; starting PCM producer");
+    std::future::pending::<()>().await;
     Ok(())
 }
 
