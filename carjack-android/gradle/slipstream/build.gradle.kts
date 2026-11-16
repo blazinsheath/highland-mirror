@@ -33,8 +33,8 @@ android {
         applicationId = "io.github.blazinsheath.slipstream.highland"
         minSdk = 33
         targetSdk = 36
-        versionCode = 30003
-        versionName = "0.3.0-highland.3"
+        versionCode = 30004
+        versionName = "0.3.0-highland.4"
         ndk.abiFilters += "arm64-v8a"
     }
     buildFeatures {

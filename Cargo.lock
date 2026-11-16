@@ -2775,6 +2775,7 @@ dependencies = [
  "bytes",
  "catplay_carplay",
  "catplay_hap",
+ "catplay_tokio",
  "catplay_util",
  "chrono",
  "deku",

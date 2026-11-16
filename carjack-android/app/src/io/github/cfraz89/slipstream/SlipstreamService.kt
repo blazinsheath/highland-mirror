@@ -338,12 +338,21 @@ class SlipstreamService : Service() {
             // Cleared first, so the session's end isn't taken for a dropped one and relinked.
             val stopping = session
             session = null
-            stopping?.stop()
-            bluetooth.stop()
-            wifi.leave()
-            // After leave(), so the variant's own teardown follows the WiFi being handed back.
-            Variant.onServiceDestroyed(this)
-            thread.quitSafely()
+            var cleaned = false
+            val cleanup = Runnable {
+                if (!cleaned) {
+                    cleaned = true
+                    bluetooth.stop()
+                    wifi.leave()
+                    Variant.onServiceDestroyed(this)
+                    thread.quitSafely()
+                }
+            }
+            // Let native TEARDOWN reach the vehicle before dropping its Wi-Fi connection.
+            if (stopping == null) cleanup.run() else {
+                stopping.stop { cleanup.run() }
+                handler.postDelayed(cleanup, 1200L)
+            }
         }
         super.onDestroy()
     }

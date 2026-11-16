@@ -14,6 +14,7 @@ bytes = "1.12.1"
 catplay_carplay = { git = "https://github.com/cfraz89/catplay.git", branch = "master", default-features = false, features = ["tx"]}
 catplay_hap = { git = "https://github.com/cfraz89/catplay.git", branch = "master", default-features=false, features = ["std"] }
 catplay_util = { git = "https://github.com/cfraz89/catplay.git", branch = "master" }
+catplay_tokio = { git = "https://github.com/cfraz89/catplay.git", branch = "master" }
 deku = "0.20.3"
 eyre = "0.6.12"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

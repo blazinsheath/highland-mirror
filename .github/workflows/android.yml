@@ -39,7 +39,7 @@ jobs:
             --volume "$GITHUB_WORKSPACE:/src" \
             --workdir /src \
             slipstream-highland-build \
-            cargo test --locked --lib -p catplay_audio -p libcarjack -p carjack-android
+            cargo test --locked --tests -p catplay_audio -p libcarjack -p carjack-android
 
       - name: Build the development APK
         run: |

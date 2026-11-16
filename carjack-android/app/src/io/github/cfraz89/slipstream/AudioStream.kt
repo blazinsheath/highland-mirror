@@ -13,6 +13,7 @@ import kotlin.math.sin
 
 /** Forwards live playback to CarPlay, using the exact rate and channels the accessory accepts. */
 class AudioStream(private val context: Context, private val session: Long) {
+    private val captureToken = SystemClock.elapsedRealtimeNanos()
     @Volatile private var running = true
     private val lock = Any()
     private var input: ParcelFileDescriptor.AutoCloseInputStream? = null
@@ -21,11 +22,12 @@ class AudioStream(private val context: Context, private val session: Long) {
     fun start(sampleRate: Int, channels: Int) {
         worker = Thread({
             Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
+            if (!running) return@Thread
             try {
-                if (Variant.setting(context, "audio", "speakers") == "test") {
-                    testTone(sampleRate, channels)
-                } else {
-                    capture(sampleRate, channels)
+                when (Variant.setting(context, "audio", "speakers")) {
+                    "test" -> testTone(sampleRate, channels)
+                    "off" -> testTone(sampleRate, channels, true)
+                    else -> capture(sampleRate, channels)
                 }
             } catch (e: Exception) {
                 if (running) {
@@ -39,11 +41,11 @@ class AudioStream(private val context: Context, private val session: Long) {
     }
 
     private fun capture(sampleRate: Int, channels: Int) {
-        val descriptor = Variant.openAudio(session, sampleRate, channels)
+        val descriptor = Variant.openAudio(captureToken, sampleRate, channels)
             ?: throw IOException("Shizuku could not open phone playback")
         val source = ParcelFileDescriptor.AutoCloseInputStream(descriptor)
         synchronized(lock) {
-            if (!running) { source.close(); Variant.closeAudio(session); return }
+            if (!running) { source.close(); Variant.closeAudio(captureToken); return }
             input = source
         }
         try {
@@ -67,16 +69,16 @@ class AudioStream(private val context: Context, private val session: Long) {
             }
         } finally {
             synchronized(lock) { input = null }
-            Variant.closeAudio(session)
+            Variant.closeAudio(captureToken)
         }
     }
 
     /** Quiet two-second bursts for 30 seconds, allowing time to adjust the vehicle volume. */
-    private fun testTone(sampleRate: Int, channels: Int) {
+    private fun testTone(sampleRate: Int, channels: Int, silent: Boolean = false) {
         val frames = sampleRate / 100
         val buffer = ByteBuffer.allocateDirect(frames * channels * 2).order(ByteOrder.LITTLE_ENDIAN)
         val started = SystemClock.elapsedRealtime()
-        Log.i("carjack", "Starting speaker test: $sampleRate Hz, $channels channels, 30 seconds")
+        Log.i("carjack", "Starting audio generator: $sampleRate Hz, $channels channels, silent=$silent")
         var chunk = 0L
         while (running) {
             buffer.clear()
@@ -84,9 +86,9 @@ class AudioStream(private val context: Context, private val session: Long) {
                 val index = chunk * frames + frame
                 val seconds = index.toDouble() / sampleRate
                 val phase = seconds % 5.0
-                val envelope = if (seconds >= 30) 0.0 else
+                val envelope = if (silent || seconds >= 30) 0.0 else
                     minOf(1.0, phase / 0.05, (2.0 - phase).coerceAtLeast(0.0) / 0.05)
-                val value = (sin(2 * PI * 440 * seconds) * 1500 * envelope).toInt().toShort()
+                val value = (sin(2 * PI * 440 * seconds) * 4500 * envelope).toInt().toShort()
                 repeat(channels) { buffer.putShort(value) }
             }
             Native.pushAudio(session, buffer, buffer.capacity())
@@ -103,6 +105,6 @@ class AudioStream(private val context: Context, private val session: Long) {
             input = null
         }
         worker?.interrupt()
-        Variant.closeAudio(session)
+        Variant.closeAudio(captureToken)
     }
 }

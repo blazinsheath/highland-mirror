@@ -7,7 +7,7 @@ use bytes::BytesMut;
 use deku::prelude::*;
 
 use catplay_carplay::carplay_tx::{
-    AirPlayTransmitter, AirPlayTransmitterBootstrap, AirPlayTransmitterProxy,
+    AirPlayTransmitter, AirPlayTransmitterBootstrap, AirPlayTransmitterImpl, AirPlayTransmitterProxy,
     AirPlayTransmitterProxyRef,
 };
 use catplay_carplay::common::AirPlayFeature;
@@ -74,6 +74,7 @@ pub fn expects_hevc(hevc_info: bool, multi_codec: bool, source_version: &str) ->
 
 pub struct AirPlayConnection {
     tx: AirPlayTransmitterProxyRef,
+    audio_transport: crate::audio_transport::AudioTransport,
     pub width: u32,
     pub height: u32,
     pub max_fps: u32,
@@ -84,6 +85,21 @@ pub struct AirPlayConnection {
 }
 
 impl AirPlayConnection {
+    pub fn teardown_client(&self) -> catplay_carplay::carplay_tx::AirPlayRtspClient {
+        self.audio_transport.client.clone()
+    }
+    pub fn teardown_payload(&self) -> catplay_carplay::msg::TeardownPayload {
+        use catplay_carplay::msg::{StreamType, TeardownPayload, TeardownStream};
+        let info = self.tx.info_cached();
+        let mut streams = Vec::new();
+        if let Some(display) = info.displays.first() {
+            streams.push(TeardownStream::screen(StreamType::Screen, display.uuid.clone()));
+        }
+        if let Some(config) = crate::audio::media_config(info) {
+            streams.push(TeardownStream::new(config.stream_type));
+        }
+        TeardownPayload { streams }
+    }
     pub fn media_audio_config(&self) -> Option<crate::audio::AudioConfig> {
         tracing::info!(formats = ?self.tx.info_cached().audio_formats, "Accessory audio formats");
         crate::audio::media_config(self.tx.info_cached())
@@ -138,7 +154,9 @@ pub async fn connect_airplay(
         pair_verify_first: remote_homekit_id.is_some(),
     };
 
-    let tx = AirPlayTransmitterProxy::connect(bootstrap).await?;
+    let mut implementation = AirPlayTransmitterImpl::connect(bootstrap).await?;
+    let audio_transport = crate::audio_transport::AudioTransport::from_streams(implementation.raw_streams())?;
+    let tx = AirPlayTransmitterProxy::new(implementation);
     tracing::info!("AirPlay bootstrap complete!");
     {
         let info = tx.info_cached();
@@ -191,6 +209,7 @@ pub async fn connect_airplay(
 
     Ok(AirPlayConnection {
         tx,
+        audio_transport,
         width,
         height,
         max_fps,
@@ -257,6 +276,7 @@ pub async fn run_media_stream(
 ) -> Result<()> {
     let AirPlayConnection {
         tx,
+        audio_transport,
         width,
         height,
         max_fps,
@@ -277,12 +297,13 @@ pub async fn run_media_stream(
     }
     let screen_modes = modes;
     if audio.is_some() {
-        modes.main_audio.take_by_controller(&Resource::take(
+        let taken = modes.main_audio.take_by_controller(&Resource::take(
             ResourceID::MainAudio,
             ResourceTransferPriority::UserInitiated,
             ResourceConstraint::Anytime,
             ResourceConstraint::Anytime,
         ));
+        tracing::info!(taken, state=?modes.main_audio, "Audio resource claim");
     }
     if let Err(error) = tx.assert_modes(modes.serialize_to_state()).await {
         if audio.is_none() { return Err(error.into()); }
@@ -323,8 +344,15 @@ pub async fn run_media_stream(
 
     let mut audio_ready = None;
     // Keep the guard alive for the entire session. Dropping it tears down the RTP stream.
+    let mut _media_audio = None;
     let _audio_guard = if let Some(output) = audio {
-        match tx.setup_audio(latency, output.config.stream_type, output.config.format,
+        if output.config.stream_type == catplay_carplay::msg::StreamType::MainHighAudio {
+            match audio_transport.setup(output.config, output.recorder).await {
+                Ok(link) => { _media_audio = Some(link); audio_ready = Some(output.ready); }
+                Err(error) => tracing::warn!(%error, "Media audio SETUP failed; video continues"),
+            }
+            None
+        } else { match tx.setup_audio(latency, output.config.stream_type, output.config.format,
             output.config.audio_type, None, output.recorder).await {
             Ok(guard) => {
                 tracing::info!(?output.config, "CarPlay speaker audio ready");
@@ -335,7 +363,7 @@ pub async fn run_media_stream(
                 tracing::warn!(?error, "Audio SETUP failed; continuing the working video stream");
                 None
             }
-        }
+        } }
     } else { None };
 
     tx.record().await?;

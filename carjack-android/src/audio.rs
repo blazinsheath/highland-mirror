@@ -1,5 +1,6 @@
 //! Bounded Android PCM -> catplay's RTP producer. No audio is stored on disk.
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU64, Ordering};
 use catplay_carplay::audio::{AudioRecorder, AudioSinkBox};
 use catplay_carplay::rtsp_frame::RtspResult;
 use crate::session::Platform;
@@ -7,6 +8,7 @@ use crate::session::Platform;
 #[derive(Default)]
 pub struct PlaybackAudio {
     sink: Mutex<Option<AudioSinkBox<i16>>>,
+    chunks: AtomicU64,
 }
 
 impl PlaybackAudio {
@@ -16,6 +18,10 @@ impl PlaybackAudio {
             .map(|s| i16::from_le_bytes([s[0], s[1]])).collect();
         if let Some(sink) = self.sink.lock().unwrap().as_mut() {
             sink.write(&samples);
+            let chunks = self.chunks.fetch_add(1, Ordering::Relaxed) + 1;
+            if chunks == 1 || chunks % 500 == 0 {
+                tracing::info!(chunks, samples=samples.len(), "Phone PCM delivered to CarPlay audio sender");
+            }
         }
     }
 }

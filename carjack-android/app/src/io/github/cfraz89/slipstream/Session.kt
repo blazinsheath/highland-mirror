@@ -2,6 +2,7 @@ package io.github.cfraz89.slipstream
 
 import android.bluetooth.BluetoothSocket
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Handler
 import android.os.ParcelFileDescriptor
 import android.util.Log
@@ -28,6 +29,11 @@ class Session(
     @Volatile private var handle = 0L
     private var stream: ScreenStream? = null
     private var audio: AudioStream? = null
+    private var audioConfig: Pair<Int, Int>? = null
+    private var afterStop: (() -> Unit)? = null
+    private val settingsChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "audio_revision") handler.post { restartAudio() }
+    }
     @Volatile private var ending = false
     @Volatile private var touch: Touch? = null
     /** Video got as far as starting. */
@@ -36,12 +42,12 @@ class Session(
 
     /** Relays the RFCOMM channel through a socket pair, since the core wants a plain fd. */
     fun start(name: String?, address: String?, codec: Int) {
+        Variant.prefs(context).registerOnSharedPreferenceChangeListener(settingsChanged)
         val pair = ParcelFileDescriptor.createSocketPair()
         val ours = pair[0]
         pump("carjack-iap-rx", socket.inputStream, FileOutputStream(ours.fileDescriptor), ours)
         pump("carjack-iap-tx", FileInputStream(ours.fileDescriptor), socket.outputStream, ours)
-        handle = Native.startSession(this, pair[1].detachFd(), name, address, codec,
-            Variant.setting(context, "audio", "speakers") != "off")
+        handle = Native.startSession(this, pair[1].detachFd(), name, address, codec, true)
     }
 
     private fun pump(name: String, input: InputStream, out: OutputStream, ours: ParcelFileDescriptor) {
@@ -65,7 +71,8 @@ class Session(
         thread.start()
     }
 
-    fun stop() {
+    fun stop(onStopped: (() -> Unit)? = null) {
+        if (onStopped != null) afterStop = onStopped
         ending = true
         handler.post { audio?.stop(); audio = null }
         Native.stopSession(handle)
@@ -74,14 +81,28 @@ class Session(
     override fun startAudio(sampleRate: Int, channels: Int) {
         handler.post {
             if (!ending) {
-                audio?.stop()
-                audio = AudioStream(context, handle).also { it.start(sampleRate, channels) }
+                audioConfig = sampleRate to channels
+                restartAudio()
             }
         }
     }
 
+    private fun restartAudio() {
+        if (ending) return
+        val config = audioConfig ?: return
+        audio?.stop()
+        audio = AudioStream(context, handle).also { it.start(config.first, config.second) }
+        val mode = Variant.setting(context, "audio", "speakers")
+        Log.i(TAG, "Audio mode applied live: $mode")
+        ScreenStream.current?.flash(when (mode) {
+            "test" -> "Speaker test: repeating for 30 seconds"
+            "off" -> "Audio: phone speakers"
+            else -> "Audio: forwarding phone playback"
+        })
+    }
+
     override fun stopAudio() {
-        handler.post { audio?.stop(); audio = null }
+        handler.post { audio?.stop(); audio = null; audioConfig = null }
     }
 
     override fun joinWifi(ssid: String, passphrase: String?, bssid: String?) {
@@ -152,6 +173,7 @@ class Session(
         Log.i(TAG, "Session ended" + if (error == null) "" else ": $error")
         status("Session ended" + (if (error == null) "" else " ($error)") + "; waiting for the head unit")
         handler.post {
+            Variant.prefs(context).unregisterOnSharedPreferenceChangeListener(settingsChanged)
             audio?.stop()
             audio = null
             stream?.stop()
@@ -160,6 +182,8 @@ class Session(
             wifi.leave()
             Bluetooth.closeQuietly(socket)
             listener(this)
+            afterStop?.invoke()
+            afterStop = null
         }
     }
 }

@@ -220,12 +220,19 @@ pub extern "system" fn Java_io_github_cfraz89_slipstream_Native_startSession(
         let result = async {
             iap.set_nonblocking(true)?;
             let iap = tokio::net::UnixStream::from_std(iap)?;
+            let run = session::run(platform.clone(), ctl.clone(), iap, params);
+            tokio::pin!(run);
             tokio::select! {
-                result = session::run(platform.clone(), ctl.clone(), iap, params) => result,
-                _ = ctl.cancel.cancelled() => Err(eyre::eyre!("Stopped")),
+                result = &mut run => result,
+                _ = ctl.cancel.cancelled() => {
+                    // Keep the session future (and its RTSP socket) alive through TEARDOWN.
+                    ctl.close_airplay().await;
+                    Err(eyre::eyre!("Stopped"))
+                },
             }
         }
         .await;
+        ctl.close_airplay().await;
         if let Err(e) = &result {
             tracing::warn!("Session ended: {e}");
         }

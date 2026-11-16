@@ -5,6 +5,33 @@ The owner confirmed that the Highland baseline APK connects and displays apps on
 Upstream sources, MIT/Apache-2.0 licenses, and the original main branch remain available.
 The Android application ID is io.github.blazinsheath.slipstream.highland.
 
+## Version 0.3.0-highland.4: audio transport and live controls
+
+The .3 device log confirms that the Highland accepted AAC SETUP, supplied media/control ports,
+and started the phone's test-tone producer. Its reported playback sample position stayed at zero.
+A separate automated test confirmed that the .3 sender emits decryptable AAC UDP packets.
+That narrows the unresolved problem to vehicle-side packet acceptance/playback; it does not
+prove the vehicle is receiving or rendering those packets.
+
+Version .4 separates the RTP audio payload number (96) from the RTSP media stream type (102),
+declares 1024 AAC samples per packet, and sends RTCP playback clock anchors on the negotiated
+control socket. Anchors use the actual PCM frame counter and capture instant, so changing
+audio sources does not leave a wall-clock timeline running ahead of the samples. Tests receive,
+authenticate and decode the actual sender's UDP packets, and validate the clock anchor on a
+separate receiving UDP socket. Protocol references:
+https://openairplay.github.io/airplay-spec/audio/rtp_streams.html
+https://github.com/mikebrady/shairport-sync/blob/master/rtp.c
+
+Audio choices now apply during an active audio connection. Selecting the test option again
+replays its 30-second tone sequence without reconnecting. A unique capture token per audio
+source prevents a stopped capture thread from closing the next one. Phone-speaker mode keeps
+the vehicle audio clock alive with silence while returning phone playback to its normal output.
+On session end, native code requests full RTSP TEARDOWN before the service drops Wi-Fi; a
+bounded fallback still permits shutdown if the vehicle does not acknowledge it.
+
+Physical Highland sound and reconnect behavior remain unverified until the owner's next test.
+Neither .3's accepted SETUP nor the automated receiver test alone proves speaker playback.
+
 ## Version 0.3.0-highland.3: AAC encoder correction
 
 Device testing of .2 preserved picture and touch but produced no audio. The owner's log confirms
@@ -30,7 +57,7 @@ NotSupported failure, without claiming the complete vehicle audio path has been 
 - Starts capture only after audio SETUP and RECORD succeed, and closes capture when the session
   ends. A session token prevents an old disconnect from stopping a new session's capture.
 - Adds Settings > Audio: Highland speakers (default), Phone speakers (audio forwarding off),
-  or Speaker test tone (quiet 440 Hz bursts for 30 seconds on the next connection).
+  or Speaker test tone (quiet 440 Hz bursts for 30 seconds, applied live while connected).
 - Retains the video-only path if the head unit does not advertise a supported audio format.
 - Calls, the vehicle microphone, and genuine Android Auto projection are not implemented.
 
@@ -50,12 +77,13 @@ https://github.com/Genymobile/scrcpy/blob/master/doc/audio.md
 3. In Highland settings choose Audio > Highland speakers. End any other Slipstream session.
 4. While parked, connect as before with Bluetooth and Wi-Fi enabled and select CarPlay on the
    CFMOTO. Play music, then adjust the Highland's media volume while it is playing.
-5. If silent, select Audio > Speaker test tone, end the session, and reconnect. A short quiet
-   tone should play on the vehicle. Switch back to Highland speakers and reconnect for music.
+5. If silent, select Audio > Speaker test tone during the connection. Tone bursts repeat for
+   30 seconds. Selecting it again replays them. Switch back to Highland speakers for music;
+   this change also applies live, without restarting the connection.
 6. If the tone works but music does not, use Send logs after trying the music app. If the tone
    is also silent, Send logs captures the advertised formats and audio setup error for diagnosis.
 7. Confirm that ending the session restores normal phone/Bluetooth playback and that reconnecting
-   starts a fresh audio stream. Settings changes take effect on the next session.
+   starts a fresh audio stream. Audio settings apply live after the media stream has opened.
 
 ## Build
 

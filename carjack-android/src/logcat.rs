@@ -73,6 +73,7 @@ pub fn init() {
                 // day's useful lines out of the log.
                 .parse_lossy(
                     "debug,catplay_carplay=info,\
+                     catplay_carplay::rtp::record::rtp_recorder=debug,\
                      catplay_carplay::screen::tx::screen_tx_session=error,\
                      catplay_carplay::rtsp_session::rtsp_transmitter=error,\
                      catplay_carplay::events::events_server=error,\

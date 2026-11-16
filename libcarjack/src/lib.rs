@@ -1,5 +1,6 @@
 pub mod access_unit;
 pub mod audio;
+pub mod audio_transport;
 pub mod airplay;
 pub mod bluetooth;
 pub mod carplay_ctrl;

@@ -106,8 +106,9 @@ fun HighlandAudioRow(onChange: () -> Unit) {
         choosing = true
     }
     if (choosing) {
-        ChoiceDialog("Audio — reconnect after changing", names, index, { choosing = false }) {
-            Variant.prefs(context).edit().putString("audio", values[it]).apply()
+        ChoiceDialog("Audio — applies during the current connection", names, index, { choosing = false }) {
+            Variant.prefs(context).edit().putString("audio", values[it])
+                .putLong("audio_revision", android.os.SystemClock.elapsedRealtimeNanos()).apply()
             choosing = false
             onChange()
         }
