@@ -117,10 +117,12 @@ object Variant {
     fun touch(context: Context, viewX: Int, viewY: Int, viewWidth: Int, viewHeight: Int) =
         Touch { action, pointer, x, y ->
             val (pw, ph) = MirrorProjection.phoneSize
-            MirrorControlService.touch(action, pointer,
-                MirrorGeometry.point(x - viewX, y - viewY, viewWidth, viewHeight, pw, ph))
+            val point = MirrorGeometry.point(x - viewX, y - viewY, viewWidth, viewHeight, pw, ph)
+            if (!MirrorInput.touch(action, pointer, point)) MirrorControlService.touch(action, pointer, point)
         }
     fun key(context: Context, code: Int, down: Boolean) {
+        if (code == KeyEvent.KEYCODE_HOME) { if (down) goHome(context); return }
+        if (MirrorInput.key(code, down)) return
         if (!down) return
         when (code) {
             KeyEvent.KEYCODE_BACK -> MirrorControlService.global(AccessibilityService.GLOBAL_ACTION_BACK)
@@ -128,9 +130,9 @@ object Variant {
             KeyEvent.KEYCODE_APP_SWITCH -> MirrorControlService.global(AccessibilityService.GLOBAL_ACTION_RECENTS)
         }
     }
-    fun key(context: Context, code: Int) = key(context, code, true)
+    fun key(context: Context, code: Int) { key(context, code, true); key(context, code, false) }
     fun switchgear(context: Context, code: Int, down: Boolean) = key(context, code, down)
-    fun goHome(context: Context) = MirrorControlService.home()
+    fun goHome(context: Context) { if (!MirrorInput.home()) MirrorControlService.home() }
 }
 
 // Encoder preview hooks intentionally discard pixels; this app mirrors private phone content.

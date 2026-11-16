@@ -15,6 +15,21 @@ class Fingers {
     private val down = SparseArray<FloatArray>()
     private var downTime = 0L
 
+    /** Release a gesture if the surface, connection or orientation changes mid-touch. */
+    fun cancel(): MotionEvent? {
+        val count = down.size()
+        if (count == 0) return null
+        val props = Array(count) { i -> MotionEvent.PointerProperties().apply {
+            id = down.keyAt(i); toolType = MotionEvent.TOOL_TYPE_FINGER
+        } }
+        val coords = Array(count) { i -> MotionEvent.PointerCoords().apply {
+            x = down.valueAt(i)[0]; y = down.valueAt(i)[1]; pressure = 0f; size = 1f
+        } }
+        down.clear()
+        return MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_CANCEL,
+            count, props, coords, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
+    }
+
     /**
      * The event for [pointer] doing [action] at (x, y), in the display's pixels; null for one
      * that changes nothing, such as a move of a finger that isn't down. The caller sets its

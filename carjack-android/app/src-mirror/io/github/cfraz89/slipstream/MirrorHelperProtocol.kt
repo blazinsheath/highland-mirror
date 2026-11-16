@@ -2,9 +2,10 @@ package io.github.cfraz89.slipstream
 
 /** Small, versioned protocol on an authenticated loopback-only connection. */
 object MirrorHelperProtocol {
-    const val VERSION = 2
+    const val VERSION = 3
     const val HELLO = 1
     const val AUDIO = 2
+    const val INPUT = 3
     const val OK = 0
     const val SHELL_UID = 2000
     fun validAudio(rate: Int, channels: Int) = rate in listOf(24000, 44100, 48000) && channels in 1..2

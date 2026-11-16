@@ -27,7 +27,7 @@ class MirrorApplication : Application() {
         super.onCreate()
         Variant.initializeDiagnostics(this)
         Variant.prefs(this).edit().putBoolean("on", false).putBoolean("stopping", false)
-            .putBoolean("streaming", false).putBoolean("video_started", false)
+            .putBoolean("streaming", false).putBoolean("video_started", false).putBoolean("input_ready", false)
             .putString("status", "Ready to connect").apply()
     }
 }
@@ -54,6 +54,9 @@ class StartActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.action == MirrorInputProtocol.ACTION_HOME && MirrorProjection.attached) {
+            openHome(); finish(); return
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(20), dp(24), dp(28)) }
         val scroll = ScrollView(this).apply { addView(column); isFillViewport = true }
@@ -67,7 +70,6 @@ class StartActivity : Activity() {
         text("${packageManager.getPackageInfo(packageName, 0).versionName} · Phone → Highland", 14f)
         state = text("Ready to connect", 21f)
         setupState = text("", 14f)
-        button("Set up built-in helper") { helperSetup() }
         start = button("Start") {
             if (Variant.prefs(this).getBoolean("on", false)) stopSession()
             else { pendingStart = true; continueStart() }
@@ -88,8 +90,6 @@ class StartActivity : Activity() {
             AudioOutputSettings.select(this, if (checked == phoneId) AudioOutputSettings.PHONE else AudioOutputSettings.HIGHLAND)
         }
         control = text("", 14f)
-        button("Enable vehicle touch control") { controlSettings() }
-        button("Share diagnostic log") { MirrorLogs.share(this) }
 
         val options = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         button("Settings & help") { options.visibility = if (options.visibility == View.GONE) View.VISIBLE else View.GONE }
@@ -97,11 +97,14 @@ class StartActivity : Activity() {
         val mainColumn = column
         column = options
         text("One-time setup", 20f)
+        button("Set up phone connection") { helperSetup() }
         target = text("Vehicle: automatic", 16f)
         button("Choose paired vehicle") { chooseHeadUnit() }
         button("Pairing code · manual fallback") { manualPairing() }
         button("Debugging connection port · fallback") { connectionPort() }
         button("Pair built-in helper again") { helperSetup(true) }
+        button("Touch fallback · optional") { controlSettings() }
+        button("Share diagnostic log") { MirrorLogs.share(this) }
         button("Bluetooth settings") { openSettings(Settings.ACTION_BLUETOOTH_SETTINGS) }
         button("Wi-Fi settings") { openSettings(Settings.ACTION_WIFI_SETTINGS) }
         text("CFMOTO Wi-Fi connects automatically. Default password: 12345678. A different password supplied by the vehicle is used automatically.", 14f)
@@ -122,7 +125,7 @@ class StartActivity : Activity() {
         }
         text("How to connect", 20f)
         text("End the old Slipstream session. Pair the built-in helper once, then tap Start, approve Android screen sharing and accept the vehicle Wi-Fi request. The phone’s Bluetooth identity is detected automatically. No separate Shizuku or helper app is needed.", 14f)
-        text("Turn on vehicle touch control once to open apps and use Back/Home from the Highland. If Android blocks the accessibility toggle, open App info → ⋮ → Allow restricted settings, then return to Accessibility.", 14f)
+        text("Touch, swipes and Back/Home connect automatically through the built-in helper. Accessibility is optional and is kept only as a troubleshooting fallback.", 14f)
         text("The home page uses landscape. Other apps follow their phone orientation. Keep the phone unlocked and screen on; locking ends screen sharing. Vehicle touch controls supported apps but cannot unlock the phone. Protected Netflix video and cellular-call audio are not supported.", 14f)
         text("The built-in helper restores the playback capture used in working Slipstream Highland. Android Wireless debugging must be enabled when starting the helper; Android may turn it off after a restart or network change. Once started, media uses a local connection. This preview still needs a physical vehicle test. Logs contain connection details and numeric audio levels, but no saved phone video or audio.", 14f)
         column = mainColumn
@@ -142,8 +145,8 @@ class StartActivity : Activity() {
     }
     private fun openHome() { startActivity(Intent(this, HomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
     private fun controlSettings() {
-        AlertDialog.Builder(this).setTitle("Control apps from the Highland")
-            .setMessage(getString(R.string.control_description))
+        AlertDialog.Builder(this).setTitle("Optional touch fallback")
+            .setMessage("Automatic vehicle touch uses the built-in helper and needs no Accessibility setup. Enable this fallback only if automatic touch is unavailable.\n\n" + getString(R.string.control_description))
             .setPositiveButton("Open accessibility settings") { _, _ -> openSettings(Settings.ACTION_ACCESSIBILITY_SETTINGS) }
             .setNegativeButton("Cancel", null).show()
     }
@@ -243,6 +246,7 @@ class StartActivity : Activity() {
         val adapter = getSystemService(BluetoothManager::class.java).adapter
         if (!adapter.isEnabled) { startActivityForResult(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), 3); return }
         if (!getSystemService(WifiManager::class.java).isWifiEnabled) { startActivityForResult(Intent(Settings.Panel.ACTION_WIFI), 4); return }
+        if (!Variant.prefs(this).getBoolean("helper_paired", false)) { pendingStart = false; helperSetup(true); return }
         if (!MirrorHelper.ready) {
             if (helperStarting) return
             helperStarting = true; refresh()
@@ -300,14 +304,28 @@ class StartActivity : Activity() {
         val running = prefs.getBoolean("on", false)
         val stopping = prefs.getBoolean("stopping", false)
         state.text = if (stopping) "Ending the vehicle session…" else prefs.getString("status", "Ready to connect")
-        setupState.text = prefs.getString("helper_status", "One app · set up the built-in helper once")
-        control.text = if (MirrorControlService.available()) "Vehicle touch: enabled" else "Vehicle touch: enable once to control apps from the Highland"
+        setupState.text = when {
+            helperStarting -> "Connecting your phone…"
+            !prefs.getBoolean("helper_paired", false) -> "Tap Start for one-time phone setup"
+            !running -> "Phone setup saved"
+            else -> "Picture, sound and touch use one connection"
+        }
+        control.text = when {
+            MirrorInput.available -> "Vehicle touch: automatic"
+            MirrorControlService.available() -> "Vehicle touch: fallback enabled"
+            prefs.getString("input_error", "").orEmpty().isNotEmpty() && running -> "Touch unavailable · see Settings & help"
+            else -> "Touch connects automatically with the vehicle"
+        }
         target.text = "Vehicle: " + Variant.setting(this, "target", "").ifEmpty { "automatic" }
         start.text = if (running) "Stop" else "Start"
         start.isEnabled = !stopping && !helperStarting
         retry.visibility = if (running && !prefs.getBoolean("video_started", false) && !stopping) View.VISIBLE else View.GONE
         val wanted = if (AudioOutputSettings.read(this) == AudioOutputSettings.PHONE) phoneId else vehicleId
         if (audio.checkedRadioButtonId != wanted) audio.check(wanted)
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent); setIntent(intent)
+        if (intent.action == MirrorInputProtocol.ACTION_HOME && MirrorProjection.attached) openHome()
     }
     override fun onResume() { super.onResume(); if (::state.isInitialized) refresh() }
     override fun onDestroy() { Variant.prefs(this).unregisterOnSharedPreferenceChangeListener(listener); super.onDestroy() }

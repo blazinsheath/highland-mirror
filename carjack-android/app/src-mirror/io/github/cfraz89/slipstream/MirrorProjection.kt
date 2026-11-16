@@ -54,6 +54,7 @@ object MirrorProjection {
             override fun onCapturedContentResize(width: Int, height: Int) {
                 if (projection !== p || width <= 0 || height <= 0) return
                 phoneSize = width to height
+                MirrorInput.cancel()
                 MirrorControlService.cancelTouch()
                 Log.i("carjack", "Phone capture resized: ${width}x$height (aspect ratio preserved)")
             }
@@ -82,12 +83,14 @@ object MirrorProjection {
             old.surface = target
         }
         attached = true
+        MirrorInput.start(context)
         Variant.prefs(context).edit().putBoolean("streaming", true).apply()
         return Runnable {
             synchronized(this) {
                 if (surfaceOwner == owner) {
                     display?.surface = null
                     attached = false
+                    MirrorInput.stop()
                     MirrorControlService.cancelTouch()
                     Variant.prefs(context).edit().putBoolean("streaming", false).apply()
                 }
@@ -104,6 +107,7 @@ object MirrorProjection {
         active = false
         attached = false
         surfaceOwner++
+        MirrorInput.stop()
         audio.stop()
         MirrorControlService.cancelTouch()
         display?.release()

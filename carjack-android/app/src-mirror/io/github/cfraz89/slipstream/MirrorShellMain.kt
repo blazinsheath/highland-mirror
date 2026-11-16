@@ -12,6 +12,7 @@ import java.io.DataOutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.Semaphore
 import kotlin.system.exitProcess
 
@@ -30,6 +31,7 @@ object MirrorShellMain {
         }
         val playback = PlaybackCapture(captureContext) // Same capture implementation as Highland .6.
         val owner = AtomicBoolean(false)
+        val inputOwner = AtomicReference<MirrorShellInput?>(null)
         val clients = Semaphore(8)
         Thread({ Thread.sleep(30000); if (!owner.get()) exitProcess(0) }, "helper-start-timeout").apply { isDaemon = true; start() }
         try {
@@ -68,7 +70,7 @@ object MirrorShellMain {
                                             client.soTimeout = 0
                                             while (input.read() != -1) { }
                                         }
-                                        finally { playback.stop(); exitProcess(0) }
+                                        finally { inputOwner.getAndSet(null)?.close(); playback.stop(); exitProcess(0) }
                                     }
                                     MirrorHelperProtocol.AUDIO -> {
                                         check(owner.get())
@@ -89,6 +91,22 @@ object MirrorShellMain {
                                         try { ParcelFileDescriptor.AutoCloseInputStream(pipe).use { it.copyTo(output, 16384) } }
                                         finally { playback.stop(token); client.close(); watch.interrupt() }
                                     }
+                                    MirrorHelperProtocol.INPUT -> {
+                                        check(owner.get())
+                                        val control = try { MirrorShellInput() } catch (_: Exception) {
+                                            output.writeInt(1); output.flush(); return@Thread
+                                        }
+                                        inputOwner.getAndSet(control)?.close()
+                                        try {
+                                            output.writeInt(MirrorHelperProtocol.OK); output.flush()
+                                            client.soTimeout = 0
+                                            while (true) {
+                                                val accepted = control.handle(MirrorInputProtocol.read(input))
+                                                output.writeInt(if (accepted) MirrorHelperProtocol.OK else 1); output.flush()
+                                                if (!accepted) break
+                                            }
+                                        } finally { control.close(); inputOwner.compareAndSet(control, null) }
+                                    }
                                     else -> error("Unknown helper command")
                                 }
                             }
@@ -102,7 +120,7 @@ object MirrorShellMain {
             System.err.println("Highland helper startup failure: " +
                 generateSequence<Throwable>(e) { it.cause }.take(6).joinToString(" > ") { it.javaClass.name })
             System.err.flush()
-            Log.e("carjack", "Bundled helper ended", e); playback.stop(); exitProcess(1)
+            Log.e("carjack", "Bundled helper ended", e); inputOwner.getAndSet(null)?.close(); playback.stop(); exitProcess(1)
         }
     }
 }

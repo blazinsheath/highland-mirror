@@ -193,6 +193,7 @@ object MirrorHelper {
                     finally {
                         if (control === owner) {
                             ready = false; control = null; audio.stop()
+                            MirrorInput.stop()
                             state(context, "Helper stopped. Tap Start to reconnect.")
                             main.post { if (MirrorProjection.active) context.stopService(Intent(context, SlipstreamService::class.java)) }
                         }
@@ -223,6 +224,7 @@ object MirrorHelper {
     fun stop() {
         ready = false
         val previous = control; control = null
+        MirrorInput.stop()
         audio.stop(); runCatching { previous?.close() }
         localPort = 0; secret = ByteArray(0)
     }

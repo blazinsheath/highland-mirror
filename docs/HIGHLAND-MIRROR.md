@@ -1,4 +1,4 @@
-# Highland Mirror (preview 5)
+# Highland Mirror (preview 6 development)
 
 One APK for Samsung/Android phone mirroring to the CFMOTO U10 Pro Highland over wireless
 CarPlay. It includes the customizable Slipstream launcher and an owner-paired shell helper.
@@ -8,10 +8,8 @@ selected to recover the audio capture and automatic phone identity used in worki
 ## Setup
 
 1. Install the signed update over the current Highland Mirror app to retain pairing, setup
-   and shortcuts. **[Direct preview 5 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.5/Highland-Mirror-0.1.0-preview.5.apk)**.
-   APK SHA-256: `f1139b545d18aab01949561ea364af780fe1442c3dc0188d0b3b9326689ffe91`.
-   **Already paired? Tap Start. Do not uninstall or clear app data.** Enable Wireless debugging
-   if Android turned it off. A new code is only needed for missing or rejected pairing.
+   and shortcuts. Preview 6 is being validated. **Already paired? Tap Start.** Keep the existing
+   pairing and port settings. Enable Wireless debugging again only if Android has turned it off.
 2. **First-time setup only:** end the old Slipstream session and connect the phone to Wi-Fi.
    Open Highland Mirror and choose
    **Set up built-in helper**. If necessary enable Samsung Developer options by tapping
@@ -31,13 +29,37 @@ selected to recover the audio capture and automatic phone identity used in worki
    CFMOTO is selected automatically. The vehicle's supplied Wi-Fi password takes priority;
    CFMOTO networks with no supplied credential use 12345678. The phone's actual Bluetooth
    identity is queried by the helper before the vehicle connection begins.
-6. Enable vehicle touch control in Accessibility to operate supported phone apps and use
-   Back/Home on the Highland. It replays one-finger taps/swipes; swipes dispatch on release.
-   It does not retrieve accessibility window content or unlock the phone. Sideloaded-app
-   restrictions may require App info > menu > Allow restricted settings first.
+6. Vehicle touch, swipes and Back/Home connect automatically through the same built-in helper.
+   There is no Accessibility permission or Allow restricted settings step in normal setup.
+   Existing Accessibility touch access remains an optional fallback under Settings & help.
+   The app does not automatically grant or enable Accessibility, alter other apps' permissions,
+   read Accessibility window content, or unlock the phone. Touch is accepted only while the
+   phone projection is attached; disconnect/orientation changes cancel held touches and keys.
 7. Keep the phone unlocked and its screen on. The current MediaProjection backend stops when
    the phone locks. Physical-display-off operation is not implemented or verified. The home page
    uses landscape; other apps follow their phone orientation. Open apps change the phone too.
+
+## Automatic touch and simpler use in preview 6
+
+The owner confirmed preview 5 connects and plays audio. Android then blocked the optional
+Accessibility service until the owner allowed restricted settings; the owner reported that
+step worked. Preview 6 removes that extra setup from the normal path, rather than attempting
+to grant a restricted permission during APK installation.
+
+The authorized shell helper now accepts a fixed input protocol on a separately authenticated
+loopback connection. It uses the same InputManagerGlobal injection APIs as the original
+Slipstream service, targeting the phone's default display. Phone-image coordinate mapping
+is retained. Touch/key messages are bounded, validated and acknowledged; gesture/key state
+is released on cancellation, connection loss or rotation. Back includes both down and up,
+and vehicle Home returns to the customizable launcher. No input coordinates or text are saved.
+
+The main app keeps Start/Stop, Home and Highland speakers/Phone. Setup, logs, pairing and
+optional Accessibility fallback are under Settings & help. Android still owns first-time
+Wireless debugging pairing, nearby-device approval, screen-sharing approval and network
+prompts. The app cannot grant those sensitive approvals during installation.
+
+The working audio capture, launch-readiness handshake and native CarPlay media transport
+are preserved. Automatic helper input still needs a new physical S25 Plus/Highland test.
 
 ## Helper readiness correction in preview 5
 
@@ -124,14 +146,10 @@ New pairing dependencies are pinned: LibADB Android 3.1.1 (Apache-2.0 option), C
 source URLs and replacement/rebuild instructions are bundled under Settings & help >
 Open-source licenses and in app/mirror/assets/licenses. Upstream source/history/notices remain.
 
-Validation: [41 native + 31 Android tests passed](https://github.com/blazinsheath/slipstream-highland/actions/runs/43915476974),
-including six new readiness/closed-stream/bounded-output/redaction regressions. Existing
-loopback authentication, exact PCM and pairing-recovery tests passed. Package/version and
-permission checks passed; all four arm64 libraries and APK offsets support 16-KB pages.
-Android apksigner independently verifies the final persistent release signature. Physical
-phone/vehicle startup, audio and touch still require confirmation.
-Release source: `ef8a920af010b613dc2cf4b40167e54002ebdc13`. The release also supplies the
-unmodified LGPL SPAKE2 source and exact native submodule for replacement/rebuilding.
+Preview 6 adds input framing/validation and authenticated input-order tests. Final build and
+signature verification will be recorded after publication. Preview 5 passed 72 automated tests
+and was physically confirmed for connection and audio. The new automatic-control path still
+needs a phone/vehicle test.
 
 Official updates retain release certificate SHA-256:
 `d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9`.
@@ -142,8 +160,23 @@ References: [MediaProjection and lock termination](https://developer.android.com
 [REMOTE_SUBMIX](https://developer.android.com/reference/kotlin/android/media/MediaRecorder.AudioSource#REMOTE_SUBMIX),
 [LibADB Android](https://github.com/MuntashirAkon/libadb-android/tree/3.1.1).
 
-## Netflix research
+## Netflix research (checked 2026-11-16)
 
-The owner reports Netflix works to a TV through Samsung Smart View. That is consistent with a protected TV-display link, not ordinary MediaProjection capture. [Android secure windows](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE) restrict screen sharing of protected content. [Netflix's supported connection guide](https://help.netflix.com/en/node/49) distinguishes casting, mirroring and video cables.
+No verified phone-only Netflix fix was found for the present CarPlay capture path. Netflix's
+[current mirroring guide](https://help.netflix.com/en/node/49) mentions Samsung Smart View and
+DeX for supported displays, while its [black-screen guidance](https://help.netflix.com/en/node/11634)
+warns that Android mirroring features/apps may not be supported. Success through Smart View
+to a TV does not establish support for this CarPlay MediaProjection path. Input permissions
+or automatic touch do not change the protected video surface.
 
-No verified phone-only Netflix fix was found for this stock Samsung/CarPlay capture path. A separate device that runs Netflix itself is a possible alternative. [Ottocast's i3 page](https://www.ottocast.com/products/ottoaibox-i3) lists a **Ford/Hyundai & more** variant for factory wireless CarPlay and says Netflix runs on the box. CFMOTO is not on its published compatibility list; Highland support is **unconfirmed** and needs manufacturer confirmation. A box requiring wired CarPlay does not match the reported wireless-only setup. No vendor message or adapter purchase was made.
+The [supported-browser requirements](https://help.netflix.com/en/node/30081) do not list
+Android Chrome as a supported desktop-web playback target. A desktop user-agent/WebView
+switch was not verified as a solution and is not advertised or added as a Netflix mode.
+
+A device running Netflix itself is a possible hardware route. [Ottocast's i3 page](https://www.ottocast.com/products/ottoaibox-i3)
+lists a Ford/Hyundai & more variant for factory wireless CarPlay and claims native Netflix
+playback. CFMOTO is not in its published compatibility list: Highland support is unconfirmed.
+The page also mixes USB-installation wording with wireless models, so compatibility must be
+confirmed by the vendor before relying on it for a wireless-only Highland. No vendor contact,
+adapter purchase, firmware modification or DRM workaround was performed. This app remains
+one APK with no additional hardware requirement for its supported mirroring/music features.
