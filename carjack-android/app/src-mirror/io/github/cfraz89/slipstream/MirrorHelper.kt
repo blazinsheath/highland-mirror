@@ -301,7 +301,9 @@ object MirrorHelper {
                 require(MirrorHelperProtocol.pairingCode(code)) { "Enter six digits" }
                 val port = manualPort ?: pairingPort.takeIf { it in 1..65535 } ?: throw IOException("Keep pairing dialog open")
                 check(adb(app).pair("127.0.0.1", port, code))
-                Variant.prefs(app).edit().putBoolean("helper_paired", true).apply()
+                val prefs = Variant.prefs(app)
+                prefs.edit().putBoolean("helper_paired", true)
+                    .putLong("helper_pair_revision", prefs.getLong("helper_pair_revision", 0L) + 1L).apply()
                 state(app, "Pairing saved · return to Highland Mirror and tap Start")
                 main.post { pairing?.stop(); pairing = null; pairingPort = 0
                     app.getSystemService(NotificationManager::class.java).cancel(NOTICE) }

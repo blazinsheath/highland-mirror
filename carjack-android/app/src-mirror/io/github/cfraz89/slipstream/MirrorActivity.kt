@@ -49,6 +49,7 @@ class StartActivity : Activity() {
     private var pendingStart = false
     private var helperStarting = false
     private var setupGuiding = false
+    private var setupPairRevision = 0L
     private var setupDialog: AlertDialog? = null
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> main.post(::refresh) }
     private val required = arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN,
@@ -157,6 +158,7 @@ class StartActivity : Activity() {
     private fun helperSetup(forcePair: Boolean = false) {
         if (MirrorProjection.active) { message("Stop mirroring before pairing the helper."); return }
         if (!forcePair && Variant.prefs(this).getBoolean("helper_paired", false)) { helperProblem(); return }
+        setupPairRevision = Variant.prefs(this).getLong("helper_pair_revision", 0L)
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 9); return
         }
@@ -367,7 +369,7 @@ class StartActivity : Activity() {
         super.onResume()
         if (::state.isInitialized) refresh()
         if (setupGuiding) {
-            if (Variant.prefs(this).getBoolean("helper_paired", false)) {
+            if (Variant.prefs(this).getLong("helper_pair_revision", 0L) > setupPairRevision) {
                 setupGuiding = false; setupDialog?.dismiss(); pendingStart = true; continueStart()
             } else showHelperGuide()
         }
