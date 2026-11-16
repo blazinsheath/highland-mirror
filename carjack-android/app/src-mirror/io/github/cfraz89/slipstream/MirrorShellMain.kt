@@ -1,5 +1,7 @@
 package io.github.cfraz89.slipstream
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Process
 import android.os.ParcelFileDescriptor
 import android.system.Os
@@ -20,7 +22,13 @@ object MirrorShellMain {
         val port = MirrorHelperProtocol.port(args[0]) ?: exitProcess(1)
         val key = try { MirrorHelperLink.key(args[1]) } catch (_: IllegalArgumentException) { exitProcess(1) }
         try { Os.setsid() } catch (_: Exception) { }
-        val playback = PlaybackCapture(null) // The same REMOTE_SUBMIX implementation as Highland .6.
+        // AudioRecord resolves its session through Context.getDeviceId() on Android 14+.
+        // The shell capture wrapper still supplies shell attribution; its base must support
+        // the default device even though this tool process has no Activity/Application context.
+        val captureContext = object : ContextWrapper(null) {
+            override fun getDeviceId() = Context.DEVICE_ID_DEFAULT
+        }
+        val playback = PlaybackCapture(captureContext) // Same capture implementation as Highland .6.
         val owner = AtomicBoolean(false)
         val clients = Semaphore(8)
         Thread({ Thread.sleep(30000); if (!owner.get()) exitProcess(0) }, "helper-start-timeout").apply { isDaemon = true; start() }
