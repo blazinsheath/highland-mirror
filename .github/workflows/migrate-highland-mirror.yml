@@ -38,8 +38,9 @@ jobs:
           p=Path('docs/DEVELOPMENT-HISTORY.md')
           p.write_text('> Historical implementation notes. Current instructions and confirmed Rave playback are in README.md. Some older test-status statements below are superseded.\n\n'+p.read_text())
           PY
-          git rm .github/workflows/android.yml
-          git add README.md docs .github/workflows/highland-mirror.yml
+          git rm -r .github/workflows
+          git checkout "$initial_head" -- .github/workflows
+          git add README.md docs .github/workflows
           git commit -m "Set up Highland Mirror private home, usage guide and build workflow"
           python3 carjack-android/check-builds.py
           python3 carjack-android/check-mirror.py
