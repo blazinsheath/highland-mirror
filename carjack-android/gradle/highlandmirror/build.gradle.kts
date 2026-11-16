@@ -8,6 +8,11 @@ val transport = listOf(
     "AccessoryWifi", "AudioOutputSettings", "AudioStream", "Bluetooth", "Cues", "Fingers",
     "Native", "NavBar", "Relay", "ScreenStream", "Session", "SlipstreamService", "Touch",
 )
+val transportSources = layout.buildDirectory.dir("generated/mirror-transport")
+val prepareTransport = tasks.register<Sync>("prepareMirrorTransport") {
+    from(app.resolve("src")) { include(transport.map { "**/$it.kt" }) }
+    into(transportSources)
+}
 
 android {
     namespace = "io.github.cfraz89.slipstream"
@@ -23,9 +28,8 @@ android {
     }
     sourceSets["main"].apply {
         manifest.srcFile(app.resolve("mirror/AndroidManifest.xml"))
-        kotlin.directories += listOf(app.resolve("src").path, app.resolve("src-mirror").path)
         // Share just the transport and encoder, never the privileged generic variant.
-        kotlin.setIncludes(transport.map { "**/$it.kt" } + listOf("**/Mirror*.kt", "**/Variant.kt"))
+        kotlin.directories += listOf(transportSources.get().asFile.path, app.resolve("src-mirror").path)
         res.directories += app.resolve("mirror/res").path
         jniLibs.directories += (rootProject.extra["nativeLibs"] as File).path
     }
@@ -38,5 +42,5 @@ android {
     }
 }
 
-tasks.named("preBuild") { dependsOn(":cargoNdk") }
+tasks.named("preBuild") { dependsOn(":cargoNdk", prepareTransport) }
 dependencies { testImplementation("junit:junit:4.13.2") }
