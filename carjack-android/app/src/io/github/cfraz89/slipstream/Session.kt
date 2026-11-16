@@ -133,6 +133,9 @@ class Session(
         status("Streaming at ${width}x$height")
         handler.post {
             if (ending) return@post
+            // Remember only a unit that completed CarPlay setup, never an arbitrary iAP headset.
+            Variant.prefs(context).edit().putString("last_carplay_unit", socket.remoteDevice.address)
+                .putString("last_carplay_name", socket.remoteDevice.name.orEmpty()).apply()
             // The back and home bar, where wanted, takes the bottom of the view from the display.
             val bar = NavBar.height(context, viewHeight)
             val displayHeight = viewHeight - bar

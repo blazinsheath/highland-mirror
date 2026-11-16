@@ -5,7 +5,7 @@ plugins {
 
 val app = rootDir.resolve("app")
 val transport = listOf(
-    "AccessoryWifi", "AudioOutputSettings", "AudioStream", "Bluetooth", "Cues", "Fingers",
+    "AccessoryWifi", "AudioOutputSettings", "AudioStream", "Bluetooth", "Cues", "Fingers", "HeadUnitSelection", "LinkRecovery",
     "Native", "NavBar", "NetworkIdentity", "Relay", "ScreenStream", "Session", "SlipstreamService", "Touch",
 )
 val transportSources = layout.buildDirectory.dir("generated/mirror-transport")
@@ -24,8 +24,8 @@ android {
         applicationId = "io.github.blazinsheath.highlandmirror"
         minSdk = 34
         targetSdk = 36
-        versionCode = 10007
-        versionName = "0.1.0-preview.7"
+        versionCode = 10008
+        versionName = "0.1.0-preview.8"
         ndk.abiFilters += "arm64-v8a"
     }
     sourceSets["main"].apply {

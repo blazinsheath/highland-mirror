@@ -32,6 +32,8 @@ object MirrorLogs {
                         "Android ${android.os.Build.VERSION.RELEASE}; ${android.os.Build.MODEL}\n" +
                         "Status: ${Variant.setting(activity, "status", "")}\n" +
                         "Last session: ${Variant.setting(activity, "last_connection_status", "")}\n" +
+                        "Vehicle selected: ${Variant.setting(activity, "target", "automatic")}; last CarPlay vehicle: ${Variant.setting(activity, "last_carplay_name", "")}\n" +
+                        "Bluetooth recovery: ${Variant.setting(activity, "bluetooth_reset_report", "not attempted")}\n" +
                         "Audio: ${AudioOutputSettings.read(activity)}\n" +
                         "Built-in helper: ${MirrorHelper.ready}; ${Variant.setting(activity, "helper_status", "")}\n" +
                         "Helper pairing saved: ${Variant.prefs(activity).getBoolean("helper_paired", false)}; phase: ${Variant.setting(activity, "helper_phase", "")}\n" +

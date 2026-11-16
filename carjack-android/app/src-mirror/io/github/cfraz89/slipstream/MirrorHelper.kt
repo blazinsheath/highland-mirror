@@ -53,27 +53,32 @@ object MirrorHelper {
         if (!ready) return false
         if (!resettingBluetooth.compareAndSet(false, true)) return true
         val app = context.applicationContext
+        val beforeRestore = Variant.prefs(app).getLong("bluetooth_restore_revision", 0)
         Variant.prefs(app).edit().putBoolean("bluetooth_recovering", true)
             .putString("status", "Refreshing Bluetooth for the vehicle…").apply()
         work.execute {
+            var detail = "helper connection unavailable"
             val ok = try {
                 openSocket().use { client ->
                     client.soTimeout = 28000
                     val output = DataOutputStream(client.outputStream)
                     output.writeInt(MirrorHelperProtocol.VERSION)
                     output.writeInt(MirrorHelperProtocol.RESET_BLUETOOTH); output.flush()
-                    DataInputStream(client.inputStream).readInt() == MirrorHelperProtocol.OK
+                    val input = DataInputStream(client.inputStream)
+                    val result = input.readInt() == MirrorHelperProtocol.OK
+                    detail = input.readUTF().take(1000)
+                    result
                 }
-            } catch (_: Exception) { false }
+            } catch (e: Exception) { detail = e.javaClass.simpleName; false }
             finally { resettingBluetooth.set(false) }
-            Log.i("carjack", "Vehicle Bluetooth recovery completed: success=$ok")
             val prefs = Variant.prefs(app)
-            val edit = prefs.edit().putBoolean("bluetooth_recovering", false)
-            if (prefs.getBoolean("on", false) && !prefs.getBoolean("stopping", false) && !prefs.getBoolean("video_started", false)) {
-                edit.putString("status", if (ok) "Bluetooth refreshed · reconnecting to the vehicle…"
-                    else "Turn phone Bluetooth off and on, then retry the vehicle connection.")
-            }
-            edit.apply()
+            val restored = prefs.getLong("bluetooth_restore_revision", 0) > beforeRestore
+            val report = "commands=$ok; adapter restored=$restored; $detail"
+            Log.i("carjack", "Vehicle Bluetooth recovery completed: $report")
+            // Adapter broadcasts drive the service's fresh connection attempt. A CLI timeout
+            // must never overwrite a newer connected/manual-reset status with a toggle prompt.
+            prefs.edit().putBoolean("bluetooth_recovering", false)
+                .putString("bluetooth_reset_report", report).apply()
         }
         return true
     }

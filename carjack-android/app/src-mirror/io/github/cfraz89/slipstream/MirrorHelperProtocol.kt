@@ -2,7 +2,7 @@ package io.github.cfraz89.slipstream
 
 /** Small, versioned protocol on an authenticated loopback-only connection. */
 object MirrorHelperProtocol {
-    const val VERSION = 4
+    const val VERSION = 5
     const val HELLO = 1
     const val AUDIO = 2
     const val INPUT = 3

@@ -1,6 +1,7 @@
 package io.github.cfraz89.slipstream
 
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
@@ -58,6 +59,7 @@ class Bluetooth(
     @Volatile private var lastLinked: BluetoothDevice? = null
     /** The head unit's link has just come up: when it dials iAP, if it is going to. */
     private var onUnitLinked: (BluetoothDevice) -> Unit = {}
+    private var onAdapterState: (Int) -> Unit = {}
 
     /** When each device was last asked for its services. */
     private val probed = HashMap<String, Long>()
@@ -104,11 +106,14 @@ class Bluetooth(
         adapter.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
             override fun onServiceConnected(which: Int, proxy: BluetoothProfile) {
                 try {
-                    if (!running) return
-                    for (device in proxy.connectedDevices) {
-                        if (lastLinked == null && isTarget(device)) {
-                            Log.i(TAG, "Head unit ${device.address} is connected")
-                            setLinked(device)
+                    val connected = proxy.connectedDevices.toList()
+                    handler.post {
+                        if (running) for (device in connected) {
+                            if (lastLinked == null && isTarget(device)) {
+                                Log.i(TAG, "Head unit ${device.address} is connected")
+                                setLinked(device)
+                                onUnitLinked(device)
+                            }
                         }
                     }
                 } catch (e: SecurityException) {
@@ -125,6 +130,8 @@ class Bluetooth(
     fun setOnUnitLinked(listener: (BluetoothDevice) -> Unit) {
         onUnitLinked = listener
     }
+
+    fun setOnAdapterState(listener: (Int) -> Unit) { onAdapterState = listener }
 
     /** Withdraw the services and stop listening, so a later start can register them again. */
     fun stop() {
@@ -184,9 +191,19 @@ class Bluetooth(
     /** The configured unit, or else any bonded one that hosts iAP. */
     fun headUnit(): BluetoothDevice? {
         if (!adapter.isEnabled) return null
-        // Of several paired units, the one whose link came up last is the one that's here.
-        lastLinked?.let { return it }
-        return adapter.bondedDevices.firstOrNull { isTarget(it) }
+        val candidates = candidates()
+        return candidates.firstOrNull { it == lastLinked } ?: candidates.firstOrNull()
+    }
+
+    private fun candidates(): List<BluetoothDevice> {
+        val bonded = adapter.bondedDevices.toList()
+        val choices = HeadUnitSelection.candidates(bonded.map { device ->
+            val kind = device.bluetoothClass?.deviceClass
+            HeadUnitSelection.Device(device.address, device.name, hostsIap(device.uuids),
+                kind == BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES ||
+                    kind == BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET)
+        }, target(), Variant.setting(context, "last_carplay_unit", ""))
+        return choices.mapNotNull { choice -> bonded.firstOrNull { it.address == choice.address } }
     }
 
     private fun target(): String {
@@ -201,11 +218,7 @@ class Bluetooth(
     }
 
     private fun isTarget(device: BluetoothDevice): Boolean {
-        val target = target()
-        if (target.isNotEmpty()) {
-            return target.equals(device.address, ignoreCase = true) || target == device.name
-        }
-        return hostsIap(device.uuids)
+        return candidates().any { it == device }
     }
 
     /** Look for an unbonded unit to pair with. */
@@ -313,6 +326,7 @@ class Bluetooth(
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            if (!running) return
             val device = intent.getParcelableExtra(
                 BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java,
             )
@@ -335,12 +349,21 @@ class Bluetooth(
                 }
                 BluetoothDevice.ACTION_ACL_DISCONNECTED ->
                     if (device != null && device == lastLinked) setLinked(null)
-                BluetoothAdapter.ACTION_STATE_CHANGED ->
-                    if (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) ==
-                        BluetoothAdapter.STATE_ON
-                    ) {
-                        Variant.makeDiscoverable(adapter)
+                BluetoothAdapter.ACTION_STATE_CHANGED -> {
+                    val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)
+                    Log.i(TAG, "Bluetooth adapter state=$state")
+                    if (state == BluetoothAdapter.STATE_TURNING_OFF || state == BluetoothAdapter.STATE_OFF) {
+                        setLinked(null)
+                        for (socket in connecting) closeQuietly(socket)
+                        connecting.clear()
                     }
+                    onAdapterState(state)
+                    if (state == BluetoothAdapter.STATE_ON) {
+                        Variant.makeDiscoverable(adapter)
+                        findConnectedUnit(BluetoothProfile.HEADSET)
+                        findConnectedUnit(BluetoothProfile.A2DP)
+                    }
+                }
                 BluetoothDevice.ACTION_PAIRING_REQUEST ->
                     if (device != null && Variant.confirmPairing(device, intent) &&
                         isOrderedBroadcast

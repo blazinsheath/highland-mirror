@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.Context
@@ -74,18 +75,21 @@ class SlipstreamService : Service() {
     private var offerWait = if (Variant.canPage()) OFFER_WAIT_MS else UNIT_DIAL_GRACE_MS
     private var waitingSince = 0L
     /** Bluetooth cycles left before only dialling; refilled by a session. */
-    private var cyclesLeft = MAX_CYCLES
+    private lateinit var recovery: LinkRecovery
     /** The head unit given up on, for Retry. */
     private var gaveUpOn: BluetoothDevice? = null
     /** When the relinks in the last [RELINK_WINDOW_MS] went, oldest first. */
     private val relinks = ArrayDeque<Long>()
     private var pendingRelink: Runnable? = null
+    private var pendingDial: Runnable? = null
     private lateinit var stopAction: Notification.Action
     private lateinit var retryAction: Notification.Action
 
     override fun onCreate() {
         super.onCreate()
         Variant.prepare(this)
+        recovery = LinkRecovery(Variant.setting(this, "bluetooth_reset_limit", "$MAX_CYCLES")
+            .toIntOrNull()?.coerceIn(0, MAX_CYCLES) ?: MAX_CYCLES)
         createChannel(this)
         stopAction = action("Turn off", ACTION_STOP, 0)
         retryAction = action("Retry", ACTION_RETRY, 1)
@@ -105,7 +109,9 @@ class SlipstreamService : Service() {
         handler = Handler(thread.looper)
         wifi = AccessoryWifi(this, handler)
         AccessoryWifi.reset()
-        bluetooth = Bluetooth(this, handler) { socket -> handler.post { accept(socket) } }
+        // Cleanup may finish after onDestroy returns while native TEARDOWN is in flight.
+        // Register against the application so Android does not forcibly unregister us early.
+        bluetooth = Bluetooth(applicationContext, handler) { socket -> handler.post { accept(socket) } }
         if (!Variant.canPage()) {
             // A unit dials iAP only on a fresh link, and may carry it on a channel we dial then
             // too: give it a moment to dial first.
@@ -116,19 +122,52 @@ class SlipstreamService : Service() {
                 waitingSince = now()
                 offerWait = OFFER_WAIT_MS
                 if (session == null) status("${name(unit)} connected")
-                handler.postDelayed({
-                    if (!destroying && session == null && !blocked(unit)) {
-                        status("Calling ${name(unit)}")
-                        bluetooth.dial(unit)
+                scheduleDial(unit)
+            }
+            bluetooth.setOnAdapterState { state ->
+                if (destroying) return@setOnAdapterState
+                val prefs = Variant.prefs(this)
+                prefs.edit().putInt("bluetooth_adapter_state", state).apply()
+                if (state == BluetoothAdapter.STATE_ON) {
+                    prefs.edit().putLong("bluetooth_restore_revision",
+                        prefs.getLong("bluetooth_restore_revision", 0) + 1).apply()
+                    // Both manual and automatic toggles count. Never immediately cycle again.
+                    recovery.adapterRestored()
+                    pendingRelink?.let(handler::removeCallbacks)
+                    pendingRelink = null
+                    gaveUpOn = null
+                    waitingSince = now()
+                    offerWait = OFFER_WAIT_MS
+                    if (session == null) bluetooth.headUnit()?.let { unit ->
+                        status("Bluetooth is on · reconnecting to ${name(unit)}")
+                        scheduleDial(unit)
                     }
-                }, UNIT_DIAL_GRACE_MS)
+                } else if (state == BluetoothAdapter.STATE_TURNING_OFF || state == BluetoothAdapter.STATE_OFF) {
+                    pendingDial?.let(handler::removeCallbacks)
+                    pendingDial = null
+                }
             }
         }
         handler.post {
+            if (destroying) return@post
             bluetooth.start()
             waitingSince = now()
             handler.post(watch)
         }
+    }
+
+    /** One pending attempt, invalidated when the adapter drops or the target changes. */
+    private fun scheduleDial(unit: BluetoothDevice) {
+        pendingDial?.let(handler::removeCallbacks)
+        val dial = Runnable {
+            pendingDial = null
+            if (!destroying && session == null && bluetooth.headUnit() == unit && !blocked(unit)) {
+                status("Calling ${name(unit)}")
+                bluetooth.dial(unit)
+            }
+        }
+        pendingDial = dial
+        handler.postDelayed(dial, UNIT_DIAL_GRACE_MS)
     }
 
     private fun action(title: String, intentAction: String, requestCode: Int): Notification.Action {
@@ -188,7 +227,6 @@ class SlipstreamService : Service() {
     /** A fresh start with the head unit given up on: its link renewed. */
     private fun retry() {
         if (destroying) return
-        cyclesLeft = MAX_CYCLES
         val unit = gaveUpOn ?: bluetooth.headUnit()
         gaveUpOn = null
         if (session != null || unit == null) {
@@ -198,7 +236,10 @@ class SlipstreamService : Service() {
         status("Trying ${name(unit)} again")
         waitingSince = now()
         pendingRelink?.let(handler::removeCallbacks)
-        bluetooth.relink(unit)
+        pendingRelink = null
+        pendingDial?.let(handler::removeCallbacks)
+        pendingDial = null
+        if (Variant.canPage()) bluetooth.relink(unit) else renewLink(unit, force = true)
     }
 
     /** Without a session: find the head unit, and page it until it dials in. */
@@ -236,18 +277,15 @@ class SlipstreamService : Service() {
     }
 
     /**
-     * Where we can't page: a linked unit that hasn't dialled iAP gets a renewed link, a couple of
-     * times at most so a unit that won't do CarPlay doesn't have Bluetooth cycling all day, and
-     * after that is only dialled.
+     * A shared budget covers watch, Retry and session failure recovery. Once Bluetooth comes
+     * back on, only dial until a session has actually streamed.
      */
-    private fun renewLink(unit: BluetoothDevice) {
-        if (now() - waitingSince < offerWait) return
+    private fun renewLink(unit: BluetoothDevice, force: Boolean = false) {
+        if (!force && now() - waitingSince < offerWait) return
         waitingSince = now()
         if (blocked(unit)) return
-        if (cyclesLeft > 0) status("Renewing the link to ${name(unit)}")
-        if (cyclesLeft > 0 && Variant.cycleBluetooth()) {
-            cyclesLeft--
-            status(WAITING)
+        if (recovery.takeReset() && Variant.cycleBluetooth()) {
+            status("Refreshing Bluetooth for ${name(unit)}")
         } else {
             status("Calling ${name(unit)}")
             bluetooth.dial(unit)
@@ -283,7 +321,7 @@ class SlipstreamService : Service() {
             if (session !== ended) return@Session
             session = null
             waitingSince = now()
-            if (ended.streamed) cyclesLeft = MAX_CYCLES
+            if (ended.streamed) recovery.streamed()
             // The head unit only dials iAP on a fresh link, and stays connected after a session
             // ends; cycle it so the next one can start, however many have failed.
             relinkAfterSession(unit)
@@ -305,9 +343,9 @@ class SlipstreamService : Service() {
         if (delay > 0) status("Trying ${name(unit)} again in ${(delay + 999) / 1000} s")
         val relink = Runnable {
             pendingRelink = null
-            if (session != null) return@Runnable
+            if (destroying || session != null) return@Runnable
             relinks.addLast(now())
-            bluetooth.relink(unit)
+            if (Variant.canPage()) bluetooth.relink(unit) else renewLink(unit, force = true)
         }
         pendingRelink = relink
         handler.postDelayed(relink, delay)
@@ -340,6 +378,7 @@ class SlipstreamService : Service() {
         destroying = true
         handler.removeCallbacks(watch)
         pendingRelink?.let(handler::removeCallbacks)
+        pendingDial?.let(handler::removeCallbacks)
         handler.post {
             // Cleared first, so the session's end isn't taken for a dropped one and relinked.
             val stopping = session

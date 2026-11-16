@@ -17,12 +17,16 @@ object MirrorBluetoothReset {
         return off && on
     }
 
-    fun execute(): Boolean = reset { operation ->
-        try {
+    fun execute(report: (String) -> Unit): Boolean = reset { operation ->
+        val result = try {
             val process = ProcessBuilder("cmd", "bluetooth_manager", operation)
                 .redirectOutput(File("/dev/null")).redirectError(File("/dev/null")).start()
-            try { process.waitFor(6, TimeUnit.SECONDS) && process.exitValue() == 0 }
+            try {
+                if (process.waitFor(6, TimeUnit.SECONDS)) "exit=${process.exitValue()}" else "timeout"
+            }
             finally { if (process.isAlive) process.destroyForcibly() }
-        } catch (_: Exception) { false }
+        } catch (e: Exception) { e.javaClass.simpleName }
+        report("$operation:$result")
+        result == "exit=0"
     }
 }

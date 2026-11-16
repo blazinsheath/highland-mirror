@@ -33,6 +33,7 @@ object Variant {
     fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     fun setting(context: Context, key: String, fallback: String): String = when (key) {
         "record_screen_samples" -> "false" // Never save the mirrored phone's pixels to diagnostics.
+        "bluetooth_reset_limit" -> "1" // One reset per connection attempt; Retry only dials afterward.
         "nav_bar" -> prefs(context).getString(key, "true") ?: "true"
         else -> prefs(context).getString(key, fallback) ?: fallback
     }

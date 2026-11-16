@@ -115,8 +115,12 @@ object MirrorShellMain {
                                     }
                                     MirrorHelperProtocol.RESET_BLUETOOTH -> {
                                         check(owner.get())
-                                        val ok = synchronized(bluetoothLock) { owner.get() && MirrorBluetoothReset.execute() }
-                                        output.writeInt(if (ok) MirrorHelperProtocol.OK else 1); output.flush()
+                                        val operations = mutableListOf<String>()
+                                        val ok = synchronized(bluetoothLock) {
+                                            owner.get() && MirrorBluetoothReset.execute { operations.add(it) }
+                                        }
+                                        output.writeInt(if (ok) MirrorHelperProtocol.OK else 1)
+                                        output.writeUTF(operations.joinToString("; ")); output.flush()
                                     }
                                     else -> error("Unknown helper command")
                                 }

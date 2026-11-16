@@ -6,7 +6,7 @@ import java.io.InputStream
 
 /** A launch stream's EOF is not a readiness signal. The actual helper must report listening. */
 object MirrorShellLaunch {
-    const val READY = "HIGHLAND_MIRROR_HELPER_LISTENING_V4"
+    const val READY = "HIGHLAND_MIRROR_HELPER_LISTENING_V5"
     private const val MAX_OUTPUT = 8192
 
     fun command(apk: String, port: Int, secret: String): String {
