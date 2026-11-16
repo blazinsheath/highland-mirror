@@ -36,6 +36,7 @@ object MirrorLogs {
                         "Built-in helper: ${MirrorHelper.ready}; ${Variant.setting(activity, "helper_status", "")}\n" +
                         "Helper pairing saved: ${Variant.prefs(activity).getBoolean("helper_paired", false)}; phase: ${Variant.setting(activity, "helper_phase", "")}\n" +
                         "Helper failure: ${Variant.setting(activity, "helper_error_type", "")}; recovery: ${Variant.setting(activity, "helper_recovery", "")}\n" +
+                        "Helper startup output: ${Variant.setting(activity, "helper_launch_note", "")}\n" +
                         "Projection: ${MirrorProjection.active}; touch: ${MirrorControlService.available()}; video started: ${Variant.prefs(activity).getBoolean("video_started", false)}\n" +
                         "No saved video, audio or screen-content inspection.\n").toByteArray())
                     zip.closeEntry()

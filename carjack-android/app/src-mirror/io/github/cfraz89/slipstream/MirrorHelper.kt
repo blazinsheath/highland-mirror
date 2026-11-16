@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import io.github.muntashirakon.adb.android.AdbMdns
+import io.github.muntashirakon.adb.AdbStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
@@ -119,6 +120,7 @@ object MirrorHelper {
         stage(context, MirrorHelperRecovery.Phase.IDENTITY, "Loading the saved helper identity…")
         val connection = adb(context)
         var connected = false
+        var launchStream: AdbStream? = null
         val prefs = Variant.prefs(context)
         try {
             val ports = listOf(prefs.getInt("helper_connect_override", 0), systemPort() ?: 0,
@@ -145,18 +147,22 @@ object MirrorHelper {
             val launchSecret = MirrorHelperLink.newSecret()
             secret = MirrorHelperLink.key(launchSecret)
             stage(context, MirrorHelperRecovery.Phase.LAUNCH, "Pairing saved · starting the built-in helper…")
-            val command = "trap '' HUP; CLASSPATH=" + MirrorHelperProtocol.quote(context.applicationInfo.sourceDir) +
-                " app_process /system/bin io.github.cfraz89.slipstream.MirrorShellMain " +
-                localPort + " " + MirrorHelperProtocol.quote(launchSecret) + " </dev/null >/dev/null 2>&1 &"
+            val command = MirrorShellLaunch.command(context.applicationInfo.sourceDir, localPort, launchSecret)
+            prefs.edit().putString("helper_launch_note", "").apply()
             val transport = checkNotNull(connection.adbConnection)
-            val launch = launches.submit<Unit> {
-                connection.openStream("shell:$command").use { stream ->
-                    // The command, pairing PIN and launch secret are never included in diagnostics.
-                    stream.openInputStream().use { it.readBytes() }
+            val launch = launches.submit<AdbStream> {
+                val stream = connection.openStream("shell:$command")
+                try {
+                    MirrorShellLaunch.awaitReady(stream.openInputStream()) { output ->
+                        prefs.edit().putString("helper_launch_note", MirrorShellLaunch.safeDiagnostics(output, launchSecret)).apply()
+                    }
+                    stream // Ownership stays with startup until the helper's HELLO is authenticated.
+                } catch (e: Exception) {
+                    runCatching { stream.close() }
+                    throw e
                 }
-                Unit
             }
-            try { launch.get(15, TimeUnit.SECONDS) }
+            try { launchStream = launch.get(15, TimeUnit.SECONDS) }
             catch (e: java.util.concurrent.TimeoutException) {
                 // A library OPEN-answer race must not leave Start (or all later pairing attempts) wedged.
                 launch.cancel(true)
@@ -194,7 +200,10 @@ object MirrorHelper {
                     }
                 }, "mirror-helper-owner").start()
             } catch (e: Exception) { owner.close(); throw e }
-        } finally { runCatching { connection.disconnect() } }
+        } finally {
+            runCatching { launchStream?.close() }
+            runCatching { connection.disconnect() }
+        }
     }
 
     fun openSocket(): Socket {

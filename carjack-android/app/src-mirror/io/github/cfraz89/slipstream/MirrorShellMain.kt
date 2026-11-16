@@ -3,12 +3,14 @@ package io.github.cfraz89.slipstream
 import android.os.Process
 import android.os.ParcelFileDescriptor
 import android.system.Os
+import android.system.OsConstants
 import android.util.Log
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.Semaphore
 import kotlin.system.exitProcess
 
 /** Bundled in this APK; runs only after the owner authorizes Android Wireless debugging. */
@@ -20,11 +22,22 @@ object MirrorShellMain {
         try { Os.setsid() } catch (_: Exception) { }
         val playback = PlaybackCapture(null) // The same REMOTE_SUBMIX implementation as Highland .6.
         val owner = AtomicBoolean(false)
+        val clients = Semaphore(8)
         Thread({ Thread.sleep(30000); if (!owner.get()) exitProcess(0) }, "helper-start-timeout").apply { isDaemon = true; start() }
         try {
             ServerSocket(port, 4, InetAddress.getByName("127.0.0.1")).use { server ->
+                // The app reads just this marker, then authenticates the independent loopback link.
+                System.out.println(MirrorShellLaunch.READY)
+                System.out.flush()
+                // Stop retaining the launch pipe once readiness is reported. Future native diagnostics
+                // go to logcat; writing to a closed ADB pipe must never terminate audio capture.
+                runCatching {
+                    val sink = Os.open("/dev/null", OsConstants.O_RDWR, 0)
+                    try { Os.dup2(sink, 1); Os.dup2(sink, 2) } finally { Os.close(sink) }
+                }
                 while (true) {
                     val client = server.accept()
+                    if (!clients.tryAcquire()) { client.close(); continue }
                     Thread({
                         try {
                             client.use {
@@ -72,9 +85,16 @@ object MirrorShellMain {
                                 }
                             }
                         } catch (e: Exception) { Log.i("carjack", "Bundled helper client ended: ${e.javaClass.simpleName}") }
+                        finally { clients.release() }
                     }, "mirror-helper-client").start()
                 }
             }
-        } catch (e: Exception) { Log.e("carjack", "Bundled helper ended", e); playback.stop(); exitProcess(1) }
+        } catch (e: Exception) {
+            // This remains on the launch pipe if binding failed before READY; no arguments or secrets.
+            System.err.println("Highland helper startup failure: " +
+                generateSequence<Throwable>(e) { it.cause }.take(6).joinToString(" > ") { it.javaClass.name })
+            System.err.flush()
+            Log.e("carjack", "Bundled helper ended", e); playback.stop(); exitProcess(1)
+        }
     }
 }
