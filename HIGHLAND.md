@@ -5,6 +5,39 @@ The owner confirmed that the Highland baseline APK connects and displays apps on
 Upstream sources, MIT/Apache-2.0 licenses, and the original main branch remain available.
 The Android application ID is io.github.blazinsheath.slipstream.highland.
 
+## Version 0.3.0-highland.7: read-only cellular-call support check
+
+The owner confirmed that both .6 test tones and both normal/compatibility music routes play
+through the Highland speakers. The new log shows the AAC playback sample counter advancing
+(for example from 58368 to millions of frames). The receiver returned NotImplemented to the
+volume query, so the app did not issue an unmute request. This points to the active-session
+startup change as the effective correction. The .6 release remains the verified media baseline.
+
+The outgoing cellular call returned to the phone. Media capture is not a bidirectional call
+bridge: the current app does not open a CarPlay telephony stream or inject the vehicle microphone
+into the cellular uplink. Android exposes system call redirection APIs, but support depends on
+the device audio system. Shizuku runs as shell, whose AOSP manifest requests CALL_AUDIO_INTERCEPTION;
+Samsung's actual capability still needs checking on this phone.
+
+Version .7 adds only an asynchronous, read-only Shizuku diagnostic. It logs whether the call
+downlink/uplink API methods exist and asks IAudioService.isPstnCallAudioInterceptable(). It does
+not open call capture, create an injection track, place calls or change audio routing. All .6
+media negotiation, video, capture and codec paths are retained. Helper version 45 ensures the
+new diagnostic runs in the updated process. After starting .7 and playing music, export logs;
+another call is not required for this capability check. A true capability result is a prerequisite
+for testing the cellular bridge, not proof that calls already work.
+
+Primary references:
+https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/media/java/android/media/AudioManager.java
+https://github.com/aosp-mirror/platform_frameworks_base/blob/main/packages/Shell/AndroidManifest.xml
+
+Netflix's black video is consistent with protected surfaces being blanked on the app's
+non-secure virtual display. The capture-to-encoder path is not a protected DRM output path;
+changing the CarPlay audio stream does not provide one. Netflix says Android screen mirroring
+may be unsupported. No supported Netflix-video fix is included or promised in this build.
+https://developer.android.com/reference/android/hardware/display/DisplayManager#VIRTUAL_DISPLAY_FLAG_SECURE
+https://help.netflix.com/en/node/11634
+
 ## Version 0.3.0-highland.6: start audio on the active CarPlay session
 
 The owner's fresh .5 test used Speaker test tone from connection start. The log confirms
@@ -156,7 +189,7 @@ https://github.com/Genymobile/scrcpy/blob/master/doc/audio.md
    the update conflicts with the installed package, uninstall the earlier Highland copy first.
    Uninstalling clears that copy's settings. The original upstream Slipstream can stay installed.
 2. Start Shizuku and authorize Slipstream Highland. Restart Shizuku after replacing the APK
-   so the updated helper (version 44) is loaded.
+   so the updated helper (version 45) is loaded.
 3. In Highland settings choose Audio > Speaker test tone. End any other Slipstream session.
 4. While parked, connect as before with Bluetooth and Wi-Fi enabled and select CarPlay on the
    CFMOTO. Adjust its media volume and listen for 30 seconds. Selecting Speaker test tone again

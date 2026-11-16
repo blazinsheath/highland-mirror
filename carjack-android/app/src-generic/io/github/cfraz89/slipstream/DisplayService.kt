@@ -142,6 +142,7 @@ class DisplayService(private val context: Context?) : IDisplayService.Stub() {
 
     init {
         startSystemLog()
+        CallAudioSupport.schedule()
         restoreDarkScreen()
     }
 
