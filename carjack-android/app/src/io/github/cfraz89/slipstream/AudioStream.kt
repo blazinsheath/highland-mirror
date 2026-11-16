@@ -28,7 +28,7 @@ class AudioStream(private val context: Context, private val session: Long) {
                 if (running) {
                     Log.e("carjack", "Speaker audio unavailable", e)
                     android.os.Handler(android.os.Looper.getMainLooper()).post {
-                        ScreenStream.current?.flash("Audio capture failed: reconnect after restarting Shizuku")
+                        ScreenStream.current?.flash("Playback capture unavailable; check capture permission")
                     }
                 }
             }
@@ -37,7 +37,7 @@ class AudioStream(private val context: Context, private val session: Long) {
 
     private fun capture(sampleRate: Int, channels: Int) {
         val descriptor = Variant.openAudio(captureToken, sampleRate, channels)
-            ?: throw IOException("Shizuku could not open phone playback")
+            ?: throw IOException("Could not open phone playback capture")
         val source = ParcelFileDescriptor.AutoCloseInputStream(descriptor)
         synchronized(lock) {
             if (!running) { source.close(); Variant.closeAudio(captureToken); return }

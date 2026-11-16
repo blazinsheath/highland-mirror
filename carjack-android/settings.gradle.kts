@@ -19,7 +19,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "carjack-android"
 
-for (module in listOf("ui", "launcher", "slipstream", "motopod")) {
+for (module in listOf("ui", "launcher", "slipstream", "motopod", "highlandmirror")) {
     include(":$module")
     project(":$module").projectDir = file("gradle/$module")
 }

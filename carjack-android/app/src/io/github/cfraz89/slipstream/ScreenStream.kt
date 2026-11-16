@@ -118,6 +118,7 @@ class ScreenStream(
     private var selectCue: Bitmap? = null
     private var sampled = 0
     private var sample: FileOutputStream? = null
+    private val recordSamples = Variant.setting(context, "record_screen_samples", "true").toBoolean()
 
     /**
      * The panel is [width]x[height]; the display shows in the view rectangle, with [NavBar]
@@ -181,7 +182,7 @@ class ScreenStream(
         current = this
         lastOutput = SystemClock.uptimeMillis()
         watchdogHandler.postDelayed(watchdog, WATCHDOG_INTERVAL_MS)
-        watchdogHandler.postDelayed(preview, FIRST_PREVIEW_MS)
+        if (recordSamples) watchdogHandler.postDelayed(preview, FIRST_PREVIEW_MS)
     }
 
     /** Answers the switchgear's back and select on the picture itself; see [Cues]. */
@@ -299,7 +300,7 @@ class ScreenStream(
             try {
                 val keyframe = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
                 if (keyframe) Log.i(TAG, "Keyframe of ${info.size} bytes")
-                if (info.size > 0 && sampled < SAMPLE_BUFFERS) {
+                if (recordSamples && info.size > 0 && sampled < SAMPLE_BUFFERS) {
                     c.getOutputBuffer(index)?.let { sample(it, info) }
                 }
                 if (info.size > 0) {
