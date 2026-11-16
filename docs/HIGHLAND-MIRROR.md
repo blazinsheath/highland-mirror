@@ -5,7 +5,27 @@ CarPlay. It includes the customizable Highland home page and an owner-paired she
 **Everything is included in one APK.** The built-in helper supplies vehicle audio, automatic
 phone identification and vehicle touch after the owner authorizes pairing.
 
-[Download the signed preview 7 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.7/Highland-Mirror-0.1.0-preview.7.apk).
+[Download the signed preview 8 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.8/Highland-Mirror-0.1.0-preview.8.apk).
+
+## Preview 8 reconnect fix
+
+The preview-7 diagnostic log showed that after Stop, automatic retries targeted TONE-T60Q
+instead of CFMOTO. Some headphones advertise iAP too. Automatic selection now prefers paired
+CFMOTO vehicles, excludes headphones/headsets from fallback candidates, and remembers the
+vehicle that completed CarPlay setup. An explicit vehicle choice still takes priority.
+
+Bluetooth's return to ON now triggers a fresh connection attempt and connected-device check.
+Watch, Retry and session-failure recovery share one reset budget, replenished only by a session
+that reached streaming. A manual toggle consumes the budget too. Late helper results no longer
+replace progress with repeated toggle instructions. Logs include reset command phases and
+observed adapter restoration; a command timeout alone does not prove Bluetooth stayed off.
+Bluetooth receivers remain registered until session cleanup completes, without the service
+receiver-leak warning seen in the supplied log.
+
+Install over the existing app, connect, tap Stop, then Start and approve screen sharing again.
+Leave the vehicle on for this test. The update's physical reconnect behavior is not yet verified.
+Working audio, input, launcher and mirroring code are retained. Recovery can briefly disconnect
+other Bluetooth accessories. No Netflix playback changes are included.
 
 ## Preview 7 improvements
 
@@ -167,16 +187,16 @@ New pairing dependencies are pinned: LibADB Android 3.1.1 (Apache-2.0 option), C
 source URLs and replacement/rebuild instructions are bundled under Settings & help >
 Open-source licenses and in app/mirror/assets/licenses. Upstream source/history/notices remain.
 
-Preview 7 passed **85 automated tests**: 41 native media tests and 44 Android tests, including
-Bluetooth reset restoration/failure and setup progress tests, plus the existing input, audio, pairing
-and startup tests. Package/version,
+Preview 8 passed **95 automated tests**: 41 native media tests and 54 Android tests, including
+vehicle selection with headphones present, remembered/explicit targets, missing cached device
+details, manual toggles and reset budgets, plus existing input, audio, pairing and setup tests. Package/version,
 permission boundaries and Android APK Signature Scheme v2 were verified. Native ELF segments
 and APK library offsets retain 16 KB alignment. Preview 5 was physically confirmed for connection
 and audio. Automatic control and reconnect recovery still need a phone/vehicle test.
 
-Source: `4fc547e0d93d2a7310eccab18606ca9f3c8549f1`.
-[Build and test run](https://github.com/blazinsheath/slipstream-highland/actions/runs/43933621036).
-APK SHA-256: `c529d446a071f9e3e2476c4f69419890dceb9a8582c40f087a0249d18e06c796`.
+Source: `a86eeb861aef4bd855a6cf0abec3a4dc68cd2a1f`.
+[Build and test run](https://github.com/blazinsheath/slipstream-highland/actions/runs/43940986440).
+APK SHA-256: `e830b8c889d3e0eea4f90423f879ad02bd30b7f64dea09e479eaea1b57166d6b`.
 
 Official updates retain release certificate SHA-256:
 `d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9`.
@@ -200,13 +220,12 @@ The [supported-browser requirements](https://help.netflix.com/en/node/30081) do 
 Android Chrome as a supported desktop-web playback target. A desktop user-agent/WebView
 switch was not verified as a solution and is not advertised or added as a Netflix mode.
 
-A device running Netflix itself is a possible hardware route. [Ottocast's i3 page](https://www.ottocast.com/products/ottoaibox-i3)
-lists a Ford/Hyundai & more variant for factory wireless CarPlay and claims native Netflix
-playback. CFMOTO is not in its published compatibility list: Highland support is unconfirmed.
-The page also mixes USB-installation wording with wireless models, so compatibility must be
-confirmed by the vendor before relying on it for a wireless-only Highland. No vendor contact,
-adapter purchase, firmware modification or DRM workaround was performed. This app remains
-one APK with no additional hardware requirement for its supported mirroring/music features.
+A software candidate remains to be tested: Mozilla [verified Netflix playback in Firefox Android
+desktop mode](https://bugzilla.mozilla.org/show_bug.cgi?id=1915097#c17) on a Pixel 5 running
+Android 14. That confirms browser playback on that configuration, not capture on the S25 Plus
+or transmission through Highland Mirror. A phone/vehicle test is pending. If it succeeds,
+[GeckoView](https://mozilla.github.io/geckoview/) provides an embeddable engine for one APK.
+No embedded browser or Netflix playback change is included in this update.
 
 Android documents that secure windows are blanked on non-secure virtual displays and reserves
 secure capture permission for system components. The new pairing/reconnect code does not change
