@@ -1,4 +1,4 @@
-# Highland Mirror (preview 4 development)
+# Highland Mirror (preview 4)
 
 One APK for Samsung/Android phone mirroring to the CFMOTO U10 Pro Highland over wireless
 CarPlay. It includes the customizable Slipstream launcher and an owner-paired shell helper.
@@ -7,8 +7,13 @@ selected to recover the audio capture and automatic phone identity used in worki
 
 ## Setup
 
-1. Install the signed update over Highland Mirror preview 2 to retain setup and app shortcuts.
-   Preview 4 is being validated. It preserves the app identity and existing debugging pairing.
+1. Install the signed update over the current Highland Mirror app to retain pairing, setup
+   and shortcuts. **[Direct preview 4 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.4/Highland-Mirror-0.1.0-preview.4.apk)**.
+   APK SHA-256: `ba1a50c103ec6af8d1e82866c4819beeef5a407dff815bb6d704fe6fdb37fe97`.
+   **Already paired? Tap Start. Do not uninstall or clear app data.** Enable Wireless debugging
+   if Android turned it off. Use a new pairing code only for first-time or rejected pairing.
+   If automatic connection discovery fails, the fallback uses the connection port on the main
+   Wireless debugging screen; this differs from the temporary pairing-code port.
 2. End the old Slipstream session. Connect the phone to Wi-Fi. Open Highland Mirror and choose
    **Set up built-in helper**. If necessary enable Samsung Developer options by tapping
    About phone > Software information > Build number seven times.
@@ -95,9 +100,13 @@ New pairing dependencies are pinned: LibADB Android 3.1.1 (Apache-2.0 option), C
 source URLs and replacement/rebuild instructions are bundled under Settings & help >
 Open-source licenses and in app/mirror/assets/licenses. Upstream source/history/notices remain.
 
-Preview 4 adds real loopback peer-authentication/PCM tests and pairing-recovery regression
-coverage. Its final build/signature result will be recorded after publication. Physical
-S25 Plus/Highland helper startup, audio and touch still need confirmation.
+Validation: [41 native + 25 Android tests passed](https://github.com/blazinsheath/slipstream-highland/actions/runs/43900061713),
+including real loopback peer authentication/PCM and pairing-recovery regression coverage.
+Package/version and permission-boundary checks passed. All four arm64 native libraries and
+APK offsets support 16-KB pages. Android apksigner independently verifies the final persistent
+release signature. Physical S25 Plus/Highland helper startup, audio and touch still need confirmation.
+Release source: `1c879fcce57251830bbf80783075f6f6edb2eaf9`. The release also supplies the
+unmodified LGPL SPAKE2 source and exact native submodule for replacement/rebuilding.
 
 Official updates retain release certificate SHA-256:
 `d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9`.

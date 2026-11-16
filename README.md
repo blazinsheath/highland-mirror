@@ -1,4 +1,4 @@
-# Highland Mirror preview 4 development
+# Highland Mirror preview 4
 
 One Android APK mirrors the phone to a CFMOTO U10 Pro Highland over wireless CarPlay, with
 Slipstream's customizable app home. A bundled helper restores the previously working
@@ -6,10 +6,13 @@ shell audio capture and automatic Bluetooth identity. **No separate Shizuku or h
 Android Wireless debugging pairing is required once; debugging must be enabled to start the
 helper again. Screen sharing and optional vehicle touch still use Android approval.
 
-[Setup and limitations](docs/HIGHLAND-MIRROR.md). Preview 4 corrects the startup/pairing loop,
-replaces the blocked app-to-shell local connection with authenticated loopback, and records
-setup failures before CarPlay starts. Existing pairing and app shortcuts are retained. The
-new build is being validated; a direct APK link will be added after publication.
+**[Download Highland Mirror 0.1.0 preview 4 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.4/Highland-Mirror-0.1.0-preview.4.apk)**
+[Setup and limitations](docs/HIGHLAND-MIRROR.md) · [66 passing tests](https://github.com/blazinsheath/slipstream-highland/actions/runs/43900061713).
+Preview 4 corrects the startup/pairing loop, replaces app-to-shell Unix communication with
+mutually authenticated loopback, and records setup failures before CarPlay starts.
+Install over the current app to retain pairing and shortcuts. If already paired, tap Start;
+do not enter another code for discovery or helper-startup failures. Physical confirmation
+on the owner's S25 Plus and Highland is still required.
 Keep the phone unlocked and its screen on: locking ends the present screen-sharing backend.
 Protected Netflix video and cellular-call audio are not supported.
 
