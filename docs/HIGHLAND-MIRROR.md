@@ -2,6 +2,8 @@
 
 A separate Android APK that mirrors the phone's **actual screen** over the CFMOTO's wireless CarPlay connection, without Shizuku, ADB, Wireless debugging, root or a helper APK. Its new Android application ID, `io.github.blazinsheath.highlandmirror`, lets it coexist with the working Slipstream Highland.
 
+[Direct APK download: Highland Mirror 0.1.0 preview 1](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.1/Highland-Mirror-0.1.0-preview.1.apk). [Verified build](https://github.com/blazinsheath/slipstream-highland/actions/runs/43811314176): 41 native tests and 4 geometry tests passed; APK package and v2 signature verified. SHA-256: `e532ce196f9010bf14add436cb3bafe3f0deaad6690f67a74ce2b5310a66d6d6`.
+
 This is a new public-API Android frontend over the existing open-source CarPlay transport, not an independent rewrite of the protocol. The upstream copyright and license files remain applicable and included in this repository. The working Highland branch and releases are preserved.
 
 ## Install and connect
@@ -28,3 +30,9 @@ This is a new public-API Android frontend over the existing open-source CarPlay 
 Use the existing Android toolchain container and run `gradle :highlandmirror:testDebugUnitTest :highlandmirror:assembleDebug`. The module selects only shared transport/encoder sources plus `app/src-mirror`. It has no Shizuku/Sentry/launcher dependency or provider. Geometry tests cover portrait/landscape touch mapping, letterbox rejection, malformed coordinates and MAC validation. CI checks manifest/dependency separation and the APK's package/version/signature.
 
 Android references: [MediaProjection](https://developer.android.com/media/grow/media-projection), [playback capture](https://developer.android.com/media/platform/av-capture), [nearby Wi-Fi permission](https://developer.android.com/develop/connectivity/wifi/wifi-permissions).
+
+## Netflix research (November 15, 2026)
+
+The owner reports Netflix works from this phone to a TV using Samsung Smart View. That is consistent with a protected TV-display link, and does not imply that Android's ordinary MediaProjection capture can read Netflix's protected frames. [Android's secure-window documentation](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE) explains the screen-sharing restriction. [Netflix](https://help.netflix.com/en/node/49) distinguishes casting, device mirroring and video-cable playback; support depends on the receiving device and connection.
+
+No verified phone-only Netflix fix was found for this stock Samsung/CarPlay capture path. A separate device that runs Netflix itself is a possible alternative. [Ottocast's i3 page](https://www.ottocast.com/products/ottoaibox-i3) now lists a **Ford/Hyundai & more** option for factory wireless CarPlay and says Netflix runs on the box. CFMOTO is not on its published compatibility list; operation on this Highland is **unconfirmed**. Manufacturer confirmation for the exact head unit is needed before treating it as a working solution. A conventional box requiring wired CarPlay does not match the owner's reported wireless-only setup. No adapter purchase, vendor message, root change or DRM workaround was performed.

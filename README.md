@@ -1,12 +1,20 @@
-# Slipstream Highland
+# Highland Mirror preview
 
-Development copy of [Christopher Fraser's carjack / Slipstream](https://github.com/cfraz89/carjack)
-for a CFMOTO U10 Pro Highland and Samsung Galaxy S25 Plus. The complete upstream source,
-history, and license notices are retained.
+This branch adds a separate Android app for mirroring the phone's actual screen to a CFMOTO
+U10 Pro Highland over wireless CarPlay, using Android screen-sharing permission and optional
+accessibility touch control. **No Shizuku, ADB, Wireless debugging, root or helper APK.**
 
-This first version establishes a separately installable baseline. **CarPlay speaker audio has
-not been implemented or verified in this copy.** Shizuku is still required. See
-[HIGHLAND.md](HIGHLAND.md) for the build, installation, and audio-development milestones.
+**[Download Highland Mirror 0.1.0 preview 1 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.1/Highland-Mirror-0.1.0-preview.1.apk)** ·
+[Setup and limitations](docs/HIGHLAND-MIRROR.md)
+
+The APK compiled, passed 41 native media tests and 4 geometry tests, and passed identity,
+permission and signature checks. Its new unprivileged connection still needs physical testing
+on the Highland. Netflix protected video and cellular call audio are not supported by this preview.
+
+This is built over [Christopher Fraser's carjack / Slipstream](https://github.com/cfraz89/carjack).
+The upstream source, history and license notices are retained. The working Shizuku-based
+Slipstream Highland app remains on [highland-dev](https://github.com/blazinsheath/slipstream-highland/tree/highland-dev);
+see [HIGHLAND.md](HIGHLAND.md) for its development milestones.
 
 The upstream project documentation follows below.
 
