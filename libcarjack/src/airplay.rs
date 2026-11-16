@@ -779,8 +779,8 @@ mod tests {
         assert_eq!(modes.main_audio.entity(), EntityEnum::Controller);
         leave_audio_to_accessory(&mut modes);
         let state = modes.serialize_to_state();
-        assert_eq!(state.main_audio, EntityEnum::Accessory);
-        assert_eq!(state.screen, EntityEnum::Controller);
+        assert_eq!(state.main_audio, catplay_carplay::modes::ResourceState::AccessoryHas);
+        assert_eq!(state.screen, catplay_carplay::modes::ResourceState::ControllerHas);
     }
 
     /// Two accessories captured from a real iPhone: neither declares a codec, and only the
