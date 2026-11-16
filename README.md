@@ -4,12 +4,16 @@ This branch adds a separate Android app for mirroring the phone's actual screen 
 U10 Pro Highland over wireless CarPlay, using Android screen-sharing permission and optional
 accessibility touch control. **No Shizuku, ADB, Wireless debugging, root or helper APK.**
 
-**[Download Highland Mirror 0.1.0 preview 1 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.1/Highland-Mirror-0.1.0-preview.1.apk)** ·
+**[Download Highland Mirror 0.1.0 preview 2 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.2/Highland-Mirror-0.1.0-preview.2.apk)** ·
 [Setup and limitations](docs/HIGHLAND-MIRROR.md)
 
-The APK compiled, passed 41 native media tests and 4 geometry tests, and passed identity,
-permission and signature checks. Its new unprivileged connection still needs physical testing
-on the Highland. Netflix protected video and cellular call audio are not supported by this preview.
+Preview 2 brings back Slipstream's customizable landscape launcher and app shortcuts, simplifies
+Start/Stop setup, recovers the joined Wi-Fi identity from recognizable EUI-64 addresses, and uses
+12345678 as the CFMOTO password fallback when the vehicle supplies none. The APK passed 41
+native media tests, 12 Android geometry/network tests, and package/permission/signature checks.
+Its connection fix still needs physical testing on the Highland. Netflix protected video and
+cellular call audio are not supported. Uninstall Mirror preview 1 once before this signing-key
+transition; future signed updates can retain setup and launcher shortcuts.
 
 This is built over [Christopher Fraser's carjack / Slipstream](https://github.com/cfraz89/carjack).
 The upstream source, history and license notices are retained. The working Shizuku-based
