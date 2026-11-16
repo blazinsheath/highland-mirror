@@ -181,9 +181,8 @@ NotSupported failure, without claiming the complete vehicle audio path has been 
   audio files are used. PCM is forwarded through JNI to the encrypted CarPlay RTP stream.
 - Starts capture only after audio SETUP and RECORD succeed, and closes capture when the session
   ends. A session token prevents an old disconnect from stopping a new session's capture.
-- Adds Settings > Audio: Bluetooth speakers, Highland speakers (CarPlay, default on a fresh .6
-  install), Phone speakers, or Speaker test tone. Bluetooth mode requires a fresh connection;
-  changes between the other sources apply live to an already-open CarPlay audio stream.
+- Settings > Audio offers Highland speakers and Phone speakers. Both choices apply live on
+  the same CarPlay media stream, including when a connection starts with Phone selected.
 - Retains the video-only path if the head unit does not advertise a supported audio format.
 - Calls, the vehicle microphone, and genuine Android Auto projection are not implemented.
 
