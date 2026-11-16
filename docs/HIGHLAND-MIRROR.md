@@ -1,24 +1,26 @@
-# Highland Mirror (preview 6 development)
+# Highland Mirror (preview 6)
 
 One APK for Samsung/Android phone mirroring to the CFMOTO U10 Pro Highland over wireless
 CarPlay. It includes the customizable Slipstream launcher and an owner-paired shell helper.
 **There is no separate Shizuku or helper app to install.** This architecture was explicitly
 selected to recover the audio capture and automatic phone identity used in working Slipstream.
 
+[Download the signed preview 6 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.6/Highland-Mirror-0.1.0-preview.6.apk).
+
 ## Setup
 
 1. Install the signed update over the current Highland Mirror app to retain pairing, setup
-   and shortcuts. Preview 6 is being validated. **Already paired? Tap Start.** Keep the existing
+   and shortcuts. **Already paired? Tap Start.** Keep the existing
    pairing and port settings. Enable Wireless debugging again only if Android has turned it off.
 2. **First-time setup only:** end the old Slipstream session and connect the phone to Wi-Fi.
-   Open Highland Mirror and choose
-   **Set up built-in helper**. If necessary enable Samsung Developer options by tapping
+   Open Highland Mirror and tap **Start** for one-time setup, or open
+   **Settings & help > Set up phone connection**. If necessary enable Samsung Developer options by tapping
    About phone > Software information > Build number seven times.
 3. Open Developer options > Wireless debugging, enable it, and choose **Pair device with
    pairing code**. Keep the dialog open, pull down notifications and reply to Highland Mirror's
    notification with its six-digit code. The app discovers the local pairing port automatically.
    Pairing success is reported separately; return to the app and tap Start. If notifications are disabled,
-   **Settings & help > Pairing code > manual fallback** accepts the pairing port/code while
+   **Settings & help > Pairing code · manual fallback** accepts the pairing port/code while
    Android's dialog stays visible in split screen. No phone Bluetooth address is typed.
 4. Pairing keys stay in this app's private, non-backed-up storage. Pairing is saved, but Android
    may disable Wireless debugging after restarting or changing networks; enable it again when
@@ -127,8 +129,8 @@ Closing the owner connection releases capture and exits the helper.
 **Highland speakers / Phone** switches live without ending CarPlay. Phone closes the output
 capture and feeds silence to keep the vehicle stream alive. Numeric PCM peak levels are logged
 for diagnosis; audio samples, mirrored screenshots and video are never saved. The native AAC
-stereo startup/ownership sequence remains the previously verified transport. New helper/audio
-behavior still requires a physical S25 Plus/Highland test.
+stereo startup/ownership sequence remains the previously verified transport. The owner confirmed
+preview 5 connects and plays audio on the S25 Plus/Highland; preview 6 preserves that path.
 
 Protected Netflix frames, cellular-call audio, microphone capture and bidirectional hands-free
 calling are not implemented. A helper does not promise protected-video playback.
@@ -146,10 +148,15 @@ New pairing dependencies are pinned: LibADB Android 3.1.1 (Apache-2.0 option), C
 source URLs and replacement/rebuild instructions are bundled under Settings & help >
 Open-source licenses and in app/mirror/assets/licenses. Upstream source/history/notices remain.
 
-Preview 6 adds input framing/validation and authenticated input-order tests. Final build and
-signature verification will be recorded after publication. Preview 5 passed 72 automated tests
-and was physically confirmed for connection and audio. The new automatic-control path still
-needs a phone/vehicle test.
+Preview 6 passed **78 automated tests**: 41 native media tests and 37 Android tests, including
+six new input framing/validation, truncation and authenticated input-order tests. Package/version,
+permission boundaries and Android APK Signature Scheme v2 were verified. Native ELF segments
+and APK library offsets retain 16 KB alignment. Preview 5 was physically confirmed for connection
+and audio. The new automatic-control path still needs a phone/vehicle test.
+
+Source: `3d4d004425a233a722f1ce07d9be679284f92af6`.
+[Build and test run](https://github.com/blazinsheath/slipstream-highland/actions/runs/43925585141).
+APK SHA-256: `2231dc5a6660d8f3a008466eafe5ebd037a2c4aed7e29818a0bcaa0d7e45ce29`.
 
 Official updates retain release certificate SHA-256:
 `d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9`.
