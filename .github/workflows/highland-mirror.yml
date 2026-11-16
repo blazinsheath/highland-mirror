@@ -1,0 +1,62 @@
+name: Build Highland Mirror
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: highland-mirror-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check shared components and mirror permissions
+        run: |
+          python3 carjack-android/check-builds.py
+          python3 carjack-android/check-mirror.py
+      - name: Build Android toolchain
+        run: docker build --file carjack-android/Containerfile --tag highland-mirror-build carjack-android
+      - name: Test native media transport
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" \
+            --env CARGO_HOME=/tmp/mirror-cargo --env CARGO_TARGET_DIR=/src/target/test-cargo \
+            --volume "$GITHUB_WORKSPACE:/src" --workdir /src highland-mirror-build \
+            cargo test --locked --tests -p catplay_audio -p libcarjack -p carjack-android
+      - name: Test mirror geometry and build APK
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" \
+            --env GRADLE_USER_HOME=/tmp/mirror-gradle --env GRADLE_OPTS=-Duser.home=/tmp/mirror-home \
+            --env ANDROID_USER_HOME=/tmp/mirror-android --env CARGO_HOME=/tmp/mirror-cargo \
+            --volume "$GITHUB_WORKSPACE:/src" --workdir /src/carjack-android highland-mirror-build \
+            gradle --no-daemon --console=plain :highlandmirror:testDebugUnitTest :highlandmirror:assembleDebug
+      - name: Verify identity, permissions and signature
+        run: |
+          set -euo pipefail
+          apk=target/gradle/highlandmirror/outputs/apk/debug/highlandmirror-debug.apk
+          docker run --rm --volume "$GITHUB_WORKSPACE:/src:ro" highland-mirror-build \
+            /opt/android-sdk/build-tools/36.0.0/aapt2 dump badging "/src/$apk" | tee target/mirror-apk-info.txt
+          grep -F "package: name='io.github.blazinsheath.highlandmirror'" target/mirror-apk-info.txt
+          grep -F "versionName='0.1.0-preview.8'" target/mirror-apk-info.txt
+          if grep -Ei 'shizuku|INJECT_EVENTS|CAPTURE_AUDIO_OUTPUT|READ_LOGS|WRITE_SECURE_SETTINGS' target/mirror-apk-info.txt; then
+            echo 'Unexpected privileged permission or external Shizuku dependency'; exit 1
+          fi
+          docker run --rm --volume "$GITHUB_WORKSPACE:/src:ro" highland-mirror-build \
+            /opt/android-sdk/build-tools/36.0.0/apksigner verify --verbose "/src/$apk"
+          cp "$apk" target/Highland-Mirror-debug.apk
+          cd target
+          sha256sum Highland-Mirror-debug.apk > Highland-Mirror-debug.apk.sha256
+      - name: Upload installable APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Highland-Mirror-debug
+          path: |
+            target/Highland-Mirror-debug.apk
+            target/Highland-Mirror-debug.apk.sha256
+            target/mirror-apk-info.txt
+            target/gradle/highlandmirror/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: error
+          retention-days: 14
+
