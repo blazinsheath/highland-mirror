@@ -10,7 +10,7 @@ Tested by the owner with a Samsung Galaxy S25 Plus and CFMOTO U10 Pro Highland. 
 
 Download the APK directly; no ZIP extraction is needed. Install it over your current Highland Mirror app to preserve pairing and shortcuts. This is a preview release.
 
-Source and APK downloads are public. You can share the download link; no GitHub account is required.
+This repository is private: sign in to a GitHub account with access before viewing source or downloading releases. Sharing a link does not grant access.
 
 ## First-time setup
 
