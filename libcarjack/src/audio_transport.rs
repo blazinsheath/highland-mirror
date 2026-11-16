@@ -14,7 +14,7 @@ use tokio::{net::UdpSocket, sync::Notify};
 use tokio_util::task::AbortOnDropHandle;
 use crate::audio::AudioConfig;
 
-pub type RtpAudioSender = UdpHelper<RTP_PACKET_MAX, RTP_BUFFER_PAD, RtpSessionTx<AudioEncoderDispatch>>;
+pub type RtpAudioSender = UdpHelper<RTP_PACKET_MAX, RTP_BUFFER_PAD, crate::audio_rtp::CarPlayAudioSession>;
 
 #[derive(Clone)]
 pub struct AudioTransport {
@@ -66,22 +66,21 @@ impl AudioTransport {
                 tracing::warn!(%error, "Audio clock sender stopped");
             }
         }));
-        tracing::info!(?config, data_port=response.data_port, control_port, "Media audio transport opened with RTP payload 96 and RTCP clock sync");
+        tracing::info!(?config, data_port=response.data_port, control_port, "Media audio transport opened with CarPlay stream payload and playback marker");
         Ok(MediaAudioLink { _rtp: rtp, _sync: sync,
             client: self.client.clone(), stream_type: config.stream_type })
     }
 }
 
-/// The RTSP stream type (102) and RTP payload type (96) are separate namespaces.
+/// CarPlay uses its negotiated stream type in the RTP payload field (102 for AAC music).
 pub fn start_rtp_sender(peer: SocketAddr, cipher: AirPlayStreamEncryption, stream_id: u64,
     config: AudioConfig, recorder: AudioRecorderBox<i16>) -> Result<RtpAudioSender> {
     let output = AudioStreamBasicDescription::try_from(config.format).map_err(|_| eyre!("Unsupported audio format"))?;
     let input = AudioStreamBasicDescription::fill_pcm(config.sample_rate, 16, 16, config.channels as u8, false);
     let encoder = AudioEncoderDispatch::new(input, output)?;
-    // RtpSessionTx uses this argument solely for the seven-bit RTP payload field.
-    let mut session = RtpSessionTx::new(cipher, stream_id, StreamType::GeneralAudio, encoder, recorder, false)?;
+    let mut session = RtpSessionTx::new(cipher, stream_id, config.stream_type, encoder, recorder, false)?;
     session.start_recording();
-    let (sender, _, _) = UdpHelper::connect(peer, session)?;
+    let (sender, _, _) = UdpHelper::connect(peer, crate::audio_rtp::CarPlayAudioSession::new(session))?;
     Ok(sender)
 }
 
@@ -148,14 +147,32 @@ async fn publish_clock(socket: UdpSocket, clock: MediaClockBox, rate: u32, laten
     }
     let mut timer = tokio::time::interval(Duration::from_millis(500));
     let mut count = 0u64;
+    let mut received = 0u64;
+    let mut response = [0u8; RTP_PACKET_MAX];
     loop {
-        timer.tick().await;
-        let (frames, when) = *timeline.state.lock().unwrap();
-        let position = frames as u32;
-        let Some(when) = when else { continue };
-        socket.send(&sync_packet(count == 0, position, latency_frames, clock.encode_local(when))).await?;
-        count += 1;
-        if count == 1 || count % 10 == 0 { tracing::info!(count, position, "Audio playback clock anchor sent"); }
+        tokio::select! {
+            _ = timer.tick() => {
+                let (frames, when) = *timeline.state.lock().unwrap();
+                let position = frames as u32;
+                let Some(when) = when else { continue };
+                socket.send(&sync_packet(count == 0, position, latency_frames, clock.encode_local(when))).await?;
+                count += 1;
+                if count == 1 || count % 10 == 0 { tracing::info!(count, position, "Audio playback clock anchor sent"); }
+            }
+            result = socket.recv(&mut response) => {
+                let bytes = result?;
+                received += 1;
+                // Retain only bounded control-header diagnostics, never captured sound or keys.
+                if received <= 5 || received % 100 == 0 {
+                    let packet_type = response.get(1).copied().filter(|_| bytes >= 2);
+                    let resend = if bytes >= 8 && packet_type == Some(0xd5) {
+                        Some((u16::from_be_bytes([response[4], response[5]]),
+                            u16::from_be_bytes([response[6], response[7]])))
+                    } else { None };
+                    tracing::info!(received, bytes, ?packet_type, ?resend, "Head unit audio control reply");
+                }
+            }
+        }
     }
 }
 

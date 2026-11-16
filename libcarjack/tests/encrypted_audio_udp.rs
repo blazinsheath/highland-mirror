@@ -51,7 +51,8 @@ async fn aac_audio_reaches_udp_peer_and_decrypts_to_sound() {
         let packet = cipher.decode_rtp_payload(&mut datagram[..size]).expect("Receiver must authenticate the sender's packet");
         assert_eq!(packet.header().sequence_number, sequence);
         assert_eq!(packet.header().timestamp, sequence as u32 * 1024);
-        assert_eq!(packet.header().payload_type, 96, "RTP payload is separate from RTSP stream type 102");
+        assert_eq!(packet.header().payload_type, 102, "CarPlay music uses the negotiated stream payload type");
+        assert_eq!(packet.header().marker, sequence == 0, "Only the first packet marks the playback boundary");
         let mut decoded = [0i16; 2048];
         let (written, consumed) = decoder.decode(packet.payload(), &mut decoded).unwrap();
         assert_eq!(consumed, packet.payload().len());

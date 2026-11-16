@@ -5,6 +5,30 @@ The owner confirmed that the Highland baseline APK connects and displays apps on
 Upstream sources, MIT/Apache-2.0 licenses, and the original main branch remain available.
 The Android application ID is io.github.blazinsheath.slipstream.highland.
 
+## Version 0.3.0-highland.5: CarPlay audio playback boundary
+
+The .4 device log confirms successful live source changes, REMOTE_SUBMIX capture and sustained
+audio transmission. The owner still hears neither music nor the generated tone on the Highland.
+The reported playback sample position remains zero. Bluetooth audio works outside the session;
+native iPhone CarPlay playback has not been tested on this vehicle.
+
+Version .5 restores the negotiated CarPlay stream type in the RTP payload field (102 for this
+Highland's AAC music), replacing .4's generic AirPlay payload 96. It also sets the playback-start
+marker on the first successfully sent RTP packet. Later packets keep the marker clear. These
+headers match the CarPlay sender implementation used for comparison:
+https://github.com/shaonialife/cardeck/blob/main/app/src/main/java/io/github/shaonialife/cardeck/audio/AudioSender.kt
+This is an interoperability correction to test, not proof that the vehicle speakers work.
+
+The UDP integration test authenticates and decodes the real sender's marked first packet and
+subsequent unmarked packets, checking stream type, sequence, timestamps and audible PCM. A
+separate test ensures a zero-packet UDP send does not consume the start marker. The control
+socket now logs a bounded count/type of replies and requested retransmission ranges, if any,
+to distinguish incoming receiver activity from local transmission alone.
+
+Netflix's protected video can appear black while its interface is visible. The app does not
+implement protected-content capture; use ordinary music or unprotected video for audio testing.
+https://help.netflix.com/en/node/11634
+
 ## Version 0.3.0-highland.4: audio transport and live controls
 
 The .3 device log confirms that the Highland accepted AAC SETUP, supplied media/control ports,
