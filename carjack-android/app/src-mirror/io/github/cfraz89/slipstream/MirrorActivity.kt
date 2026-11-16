@@ -110,7 +110,7 @@ class StartActivity : Activity() {
                 .setNegativeButton("Cancel", null).show()
         }
         button("Open-source licenses") {
-            val names = arrayOf("NOTICE.txt", "Apache-2.0.txt", "LGPL-3.0.txt", "GPL-3.0.txt", "spake2-c-LICENSE.txt")
+            val names = arrayOf("NOTICE.txt", "Apache-2.0.txt", "LGPL-3.0.txt", "GPL-3.0.txt", "spake2-c-LICENSE.txt", "Bouncy-Castle.txt", "Conscrypt.txt")
             AlertDialog.Builder(this).setTitle("Open-source licenses").setItems(names) { _, index ->
                 val body = TextView(this).apply { text = assets.open("licenses/" + names[index]).bufferedReader().use { it.readText() }; setPadding(dp(20), dp(16), dp(20), dp(16)) }
                 AlertDialog.Builder(this).setTitle(names[index]).setView(ScrollView(this).apply { addView(body) })
@@ -240,7 +240,8 @@ class StartActivity : Activity() {
                 startForegroundService(Intent(this, SlipstreamService::class.java)
                     .putExtra(MirrorProjection.RESULT_CODE, resultCode).putExtra(MirrorProjection.RESULT_DATA, data))
                 openHome()
-            } catch (e: Exception) { message("Could not start mirroring: ${e.message}") }
+            } catch (e: Exception) { MirrorHelper.stop(); message("Could not start mirroring: ${e.message}") }
+            else { MirrorHelper.stop(); Variant.prefs(this).edit().putString("helper_status", "Pairing saved · tap Start when ready").apply() }
             3 -> if (resultCode == RESULT_OK) continueStart() else pendingStart = false
             4 -> if (getSystemService(WifiManager::class.java).isWifiEnabled) continueStart() else pendingStart = false
         }

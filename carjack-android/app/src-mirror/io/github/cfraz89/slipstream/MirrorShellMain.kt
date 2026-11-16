@@ -36,14 +36,16 @@ object MirrorShellMain {
                                 when (input.readInt()) {
                                     MirrorHelperProtocol.HELLO -> {
                                         check(owner.compareAndSet(false, true))
-                                        val process = ProcessBuilder("settings", "get", "secure", "bluetooth_address").start()
-                                        val address = process.inputStream.bufferedReader().use { it.readLine().orEmpty() }.trim()
-                                        process.waitFor()
-                                        output.writeInt(MirrorHelperProtocol.VERSION)
-                                        output.writeUTF(NetworkIdentity.usableMac(address).orEmpty())
-                                        output.flush()
-                                        client.soTimeout = 0
-                                        try { while (input.read() != -1) { } }
+                                        try {
+                                            val process = ProcessBuilder("settings", "get", "secure", "bluetooth_address").start()
+                                            val address = process.inputStream.bufferedReader().use { it.readLine().orEmpty() }.trim()
+                                            process.waitFor()
+                                            output.writeInt(MirrorHelperProtocol.VERSION)
+                                            output.writeUTF(NetworkIdentity.usableMac(address).orEmpty())
+                                            output.flush()
+                                            client.soTimeout = 0
+                                            while (input.read() != -1) { }
+                                        }
                                         finally { playback.stop(); exitProcess(0) }
                                     }
                                     MirrorHelperProtocol.AUDIO -> {

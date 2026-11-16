@@ -10,7 +10,7 @@ SPAKE2-Java / spake2-android 2.2.1
 Copyright 2021 Muntashir Al-Islam. LGPL version 3.
 Includes its spake2-c native submodule, LGPL version 3.
 Source: https://github.com/MuntashirAkon/spake2-java/tree/2.2.1
-Native source: https://github.com/MuntashirAkon/spake2-c
+Native source: https://github.com/MuntashirAkon/spake2-c/tree/0d15933e5ba3e662cb01245a7ac0dc9fca3eac31
 No modifications to these libraries are made by Highland Mirror. The LGPL-3.0 and GPL-3.0
 texts accompany this APK. Reverse engineering to debug modifications to the LGPL components
 is permitted. The app's complete source and Gradle build are available at:
