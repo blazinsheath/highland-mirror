@@ -24,18 +24,12 @@ class Session(
 ) : Native.Callbacks {
     private companion object {
         const val TAG = "carjack"
-        fun audioProfile(mode: String): Int = when {
-            mode == "bluetooth" -> 0
-            mode.startsWith("compat_") -> 2
-            else -> 1
-        }
     }
 
     @Volatile private var handle = 0L
     private var stream: ScreenStream? = null
     private var audio: AudioStream? = null
     private var audioConfig: Pair<Int, Int>? = null
-    private var sessionAudioProfile = 0
     private var afterStop: (() -> Unit)? = null
     private val settingsChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "audio_revision") handler.post { restartAudio() }
@@ -53,10 +47,11 @@ class Session(
         val ours = pair[0]
         pump("carjack-iap-rx", socket.inputStream, FileOutputStream(ours.fileDescriptor), ours)
         pump("carjack-iap-tx", FileInputStream(ours.fileDescriptor), socket.outputStream, ours)
-        val audioMode = Variant.setting(context, "audio", "speakers")
-        sessionAudioProfile = audioProfile(audioMode)
-        Log.i(TAG, "Starting session: audio=$audioMode, CarPlay audio profile=$sessionAudioProfile")
-        handle = Native.startSession(this, pair[1].detachFd(), name, address, codec, sessionAudioProfile)
+        val audioMode = AudioOutputSettings.read(context)
+        Log.i(TAG, "Starting session: audio=$audioMode, CarPlay audio route=media")
+        // Always open the verified media route, including when the initial output is Phone.
+        // Silence keeps that route alive so both output choices can change without reconnecting.
+        handle = Native.startSession(this, pair[1].detachFd(), name, address, codec, 1)
     }
 
     private fun pump(name: String, input: InputStream, out: OutputStream, ours: ParcelFileDescriptor) {
@@ -98,27 +93,13 @@ class Session(
 
     private fun restartAudio() {
         if (ending) return
-        val mode = Variant.setting(context, "audio", "speakers")
-        if (audioProfile(mode) != sessionAudioProfile) {
-            audio?.stop()
-            audio = null
-            Log.i(TAG, "Audio transport change requires a new connection: $mode")
-            ScreenStream.current?.flash("End the session and reconnect to apply this audio mode")
-            return
-        }
-        if (sessionAudioProfile == 0) {
-            ScreenStream.current?.flash("Audio: select CFMOTO in Samsung Media output")
-            return
-        }
+        val mode = AudioOutputSettings.read(context)
         val config = audioConfig ?: return
         audio?.stop()
         audio = AudioStream(context, handle).also { it.start(config.first, config.second) }
         Log.i(TAG, "Audio mode applied live: $mode")
-        ScreenStream.current?.flash(when (mode) {
-            "test", "compat_test" -> "Speaker test: repeating for 30 seconds"
-            "off" -> "Audio: phone speakers"
-            else -> "Audio: forwarding phone playback"
-        })
+        ScreenStream.current?.flash(if (mode == AudioOutputSettings.PHONE)
+            "Audio: phone speakers" else "Audio: Highland speakers")
     }
 
     override fun stopAudio() {
@@ -166,9 +147,6 @@ class Session(
             stream = s
             try {
                 s.start(width, height, fps, viewX, viewY, viewWidth, displayHeight, bar, hevc)
-                if (sessionAudioProfile == 0) {
-                    s.flash("Bluetooth audio: select CFMOTO in Samsung Media output")
-                }
             } catch (e: IOException) {
                 Log.e(TAG, "Could not start the screen stream", e)
                 stop()

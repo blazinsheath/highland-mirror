@@ -5,7 +5,7 @@ The owner confirmed that the Highland baseline APK connects and displays apps on
 Upstream sources, MIT/Apache-2.0 licenses, and the original main branch remain available.
 The Android application ID is io.github.blazinsheath.slipstream.highland.
 
-## Version 0.3.0-highland.7: read-only cellular-call support check
+## Version 0.3.0-highland.7: two live audio outputs and call support check
 
 The owner confirmed that both .6 test tones and both normal/compatibility music routes play
 through the Highland speakers. The new log shows the AAC playback sample counter advancing
@@ -13,13 +13,23 @@ through the Highland speakers. The new log shows the AAC playback sample counter
 volume query, so the app did not issue an unmute request. This points to the active-session
 startup change as the effective correction. The .6 release remains the verified media baseline.
 
+The Audio menu now has only Highland speakers and Phone speakers. It keeps the verified normal
+AAC stereo media route and removes the Bluetooth, compatibility and test-tone choices from the
+user interface. Legacy values migrate to Highland speakers; a saved Phone selection is retained.
+The session always opens the media stream, even when Phone is selected initially. Phone output
+stops REMOTE_SUBMIX capture and feeds silence to CarPlay to retain the connection and sample
+timeline. Returning to Highland restarts playback capture on that same stream. Both changes apply
+live without disconnecting Wi-Fi, restarting the vehicle or rebuilding the CarPlay stream. The
+tone generator is removed from the Android audio producer. Low-level Opus support remains available
+for advertised formats and future telephony work, without extra output choices in the app.
+
 The outgoing cellular call returned to the phone. Media capture is not a bidirectional call
 bridge: the current app does not open a CarPlay telephony stream or inject the vehicle microphone
 into the cellular uplink. Android exposes system call redirection APIs, but support depends on
 the device audio system. Shizuku runs as shell, whose AOSP manifest requests CALL_AUDIO_INTERCEPTION;
 Samsung's actual capability still needs checking on this phone.
 
-Version .7 adds only an asynchronous, read-only Shizuku diagnostic. It logs whether the call
+Version .7 also adds an asynchronous, read-only Shizuku diagnostic. It logs whether the call
 downlink/uplink API methods exist and asks IAudioService.isPstnCallAudioInterceptable(). It does
 not open call capture, create an injection track, place calls or change audio routing. All .6
 media negotiation, video, capture and codec paths are retained. Helper version 45 ensures the
@@ -190,17 +200,14 @@ https://github.com/Genymobile/scrcpy/blob/master/doc/audio.md
    Uninstalling clears that copy's settings. The original upstream Slipstream can stay installed.
 2. Start Shizuku and authorize Slipstream Highland. Restart Shizuku after replacing the APK
    so the updated helper (version 45) is loaded.
-3. In Highland settings choose Audio > Speaker test tone. End any other Slipstream session.
+3. In Highland settings choose Audio > Highland speakers, then start a connection.
 4. While parked, connect as before with Bluetooth and Wi-Fi enabled and select CarPlay on the
-   CFMOTO. Adjust its media volume and listen for 30 seconds. Selecting Speaker test tone again
-   replays the sequence. This connection uses CarPlay audio; normal Bluetooth media is not used.
-5. Select Highland speakers (CarPlay) during the same connection and play ordinary music.
-   These changes between CarPlay sources apply live. Bluetooth mode is retained for other
-   configurations but did not work alongside projection on the owner's Highland.
-6. If the tone works but music does not, use Send logs after trying the music app. If the tone
-   is silent, end the session, choose Speaker test tone (compatibility), and start a fresh
-   connection. If that works, choose Highland speakers (compatibility) for music in the same
-   session. Export a log after both routes if silent; it includes route, gain and setup status.
+   CFMOTO. Play ordinary music and adjust its media volume. This connection uses CarPlay audio.
+5. Select Phone speakers during that connection. Playback capture stops and music returns to
+   the phone's normal output. Select Highland speakers to return music to the vehicle. Neither
+   selection needs a disconnection or a new CarPlay session.
+6. Export a log after testing both choices if something fails. Starting .7 and playing music
+   also records the read-only cellular-call capability check; another call is not required.
 7. Confirm that ending the session restores normal phone/Bluetooth playback and that reconnecting
    starts a fresh audio stream. Audio settings apply live after the media stream has opened.
 

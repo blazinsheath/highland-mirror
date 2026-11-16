@@ -7,9 +7,6 @@ import android.os.SystemClock
 import android.util.Log
 import java.io.IOException
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import kotlin.math.PI
-import kotlin.math.sin
 
 /** Forwards live playback to CarPlay, using the exact rate and channels the accessory accepts. */
 class AudioStream(private val context: Context, private val session: Long) {
@@ -24,12 +21,9 @@ class AudioStream(private val context: Context, private val session: Long) {
             Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
             if (!running) return@Thread
             try {
-                when (Variant.setting(context, "audio", "speakers")) {
-                    "bluetooth" -> Unit // Never capture or generate sound in picture-only mode.
-                    "test", "compat_test" -> testTone(sampleRate, channels)
-                    "off" -> testTone(sampleRate, channels, true)
-                    else -> capture(sampleRate, channels)
-                }
+                if (AudioOutputSettings.read(context) == AudioOutputSettings.PHONE)
+                    silence(sampleRate, channels)
+                else capture(sampleRate, channels)
             } catch (e: Exception) {
                 if (running) {
                     Log.e("carjack", "Speaker audio unavailable", e)
@@ -74,24 +68,15 @@ class AudioStream(private val context: Context, private val session: Long) {
         }
     }
 
-    /** Quiet two-second bursts for 30 seconds, allowing time to adjust the vehicle volume. */
-    private fun testTone(sampleRate: Int, channels: Int, silent: Boolean = false) {
+    /** Keep the vehicle stream/clock alive while phone playback follows its normal output. */
+    private fun silence(sampleRate: Int, channels: Int) {
         val frames = sampleRate / 100
-        val buffer = ByteBuffer.allocateDirect(frames * channels * 2).order(ByteOrder.LITTLE_ENDIAN)
+        val buffer = ByteBuffer.allocateDirect(frames * channels * 2) // Newly allocated bytes are zero.
         val started = SystemClock.elapsedRealtime()
-        Log.i("carjack", "Starting audio generator: $sampleRate Hz, $channels channels, silent=$silent")
+        Log.i("carjack", "Keeping CarPlay audio silent while phone speakers are selected")
         var chunk = 0L
         while (running) {
             buffer.clear()
-            for (frame in 0 until frames) {
-                val index = chunk * frames + frame
-                val seconds = index.toDouble() / sampleRate
-                val phase = seconds % 5.0
-                val envelope = if (silent || seconds >= 30) 0.0 else
-                    minOf(1.0, phase / 0.05, (2.0 - phase).coerceAtLeast(0.0) / 0.05)
-                val value = (sin(2 * PI * 440 * seconds) * 4500 * envelope).toInt().toShort()
-                repeat(channels) { buffer.putShort(value) }
-            }
             Native.pushAudio(session, buffer, buffer.capacity())
             chunk++
             val delay = started + chunk * 10 - SystemClock.elapsedRealtime()
