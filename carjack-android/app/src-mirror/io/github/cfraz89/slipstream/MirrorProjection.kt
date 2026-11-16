@@ -28,7 +28,7 @@ object MirrorProjection {
         private set
     @Volatile var phoneSize = 1 to 1
         private set
-    val audio = MirrorPlaybackCapture()
+    val audio = MirrorHelper.audio
 
     @Synchronized
     fun start(service: SlipstreamService, intent: Intent?): Boolean {
@@ -62,7 +62,7 @@ object MirrorProjection {
         projection = p
         callback = cb
         active = true
-        Log.i("carjack", "User-approved full-phone projection ready; no debugging service")
+        Log.i("carjack", "User-approved full-phone projection ready; bundled helper handles audio")
         return true
     }
 
@@ -94,8 +94,6 @@ object MirrorProjection {
             }
         }
     }
-
-    fun capture() = projection?.takeIf { active }
 
     @Synchronized
     fun stop() = release(true)

@@ -15,7 +15,7 @@ import android.view.KeyEvent
 import android.view.Surface
 import java.io.File
 
-/** Highland Mirror: public Android APIs only, with no helper APK or debugging connection. */
+/** Highland Mirror: one APK with a bundled, owner-authorized helper; no Shizuku installation. */
 object Variant {
     const val APP_ID = "io.github.blazinsheath.highlandmirror"
     const val PREFS = "highland-mirror"
@@ -77,15 +77,18 @@ object Variant {
         Intent(context, StartActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
     fun onServiceDestroyed(service: Service) {
         MirrorProjection.stop()
+        MirrorHelper.stop()
         val prefs = prefs(service)
         val edit = prefs.edit().putBoolean("on", false).putBoolean("streaming", false)
             .putBoolean("video_started", false).putBoolean("stopping", false)
+            .putString("helper_status", "Pairing saved · helper starts again with Start")
         if (prefs.getBoolean("stopping", false)) edit.putString("status", "Stopped. Tap Start for a new session.")
         edit.apply()
     }
     fun blocker(context: Context): String? = when {
         !MirrorProjection.active -> "Approve screen sharing in Highland Mirror"
-        MirrorGeometry.mac(setting(context, "phone_bt", "")) == null -> "Enter the phone Bluetooth address"
+        !MirrorHelper.ready -> "Start the built-in helper in Highland Mirror"
+        MirrorGeometry.mac(setting(context, "phone_bt", "")) == null -> "Retry automatic phone setup"
         else -> null
     }
     fun bluetoothAddress(context: Context, adapter: BluetoothAdapter): String? =
@@ -103,8 +106,8 @@ object Variant {
     fun disconnect(device: BluetoothDevice) {}
     fun cycleBluetooth() = false
     fun openAudio(token: Long, sampleRate: Int, channels: Int) =
-        MirrorProjection.audio.start(token, sampleRate, channels)
-    fun closeAudio(token: Long) = MirrorProjection.audio.stop(token)
+        MirrorHelper.audio.start(token, sampleRate, channels)
+    fun closeAudio(token: Long) = MirrorHelper.audio.stop(token)
     fun openDisplay(context: Context, width: Int, height: Int, density: Int, target: Surface): Runnable =
         MirrorProjection.open(context, width, height, density, target)
     fun touch(context: Context, viewX: Int, viewY: Int, viewWidth: Int, viewHeight: Int) =

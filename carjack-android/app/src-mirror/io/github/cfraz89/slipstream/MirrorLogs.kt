@@ -33,6 +33,7 @@ object MirrorLogs {
                         "Status: ${Variant.setting(activity, "status", "")}\n" +
                         "Last session: ${Variant.setting(activity, "last_connection_status", "")}\n" +
                         "Audio: ${AudioOutputSettings.read(activity)}\n" +
+                        "Built-in helper: ${MirrorHelper.ready}; ${Variant.setting(activity, "helper_status", "")}\n" +
                         "Projection: ${MirrorProjection.active}; touch: ${MirrorControlService.available()}; video started: ${Variant.prefs(activity).getBoolean("video_started", false)}\n" +
                         "No saved video, audio or screen-content inspection.\n").toByteArray())
                     zip.closeEntry()

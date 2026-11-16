@@ -1,0 +1,32 @@
+Highland Mirror bundles these additional libraries for its own-phone Wireless debugging setup.
+There is no separate Shizuku app or Shizuku service library in this APK.
+
+LibADB Android 3.1.1
+Copyright 2021 Muntashir Al-Islam; ADB discovery includes work by 南宫雪珊.
+Selected license: Apache License 2.0 (upstream offers Apache-2.0 OR GPL-3.0-or-later).
+Source: https://github.com/MuntashirAkon/libadb-android/tree/3.1.1
+
+SPAKE2-Java / spake2-android 2.2.1
+Copyright 2021 Muntashir Al-Islam. LGPL version 3.
+Includes its spake2-c native submodule, LGPL version 3.
+Source: https://github.com/MuntashirAkon/spake2-java/tree/2.2.1
+Native source: https://github.com/MuntashirAkon/spake2-c
+No modifications to these libraries are made by Highland Mirror. The LGPL-3.0 and GPL-3.0
+texts accompany this APK. Reverse engineering to debug modifications to the LGPL components
+is permitted. The app's complete source and Gradle build are available at:
+https://github.com/blazinsheath/slipstream-highland/tree/highland-link-dev
+To replace the library: clone the pinned SPAKE2 source with --recurse-submodules, build its
+Android AAR, replace the spake2-android Gradle dependency with that AAR, then rebuild this APK.
+Use a self-signed install or replace the existing installation; the author's release key is
+not needed to build, install or run a modified app. Pairing can be repeated for a new install.
+
+Conscrypt Android 2.5.3
+Copyright The Conscrypt Authors. Apache License 2.0; includes BoringSSL notices in its artifact.
+Source and notices: https://github.com/google/conscrypt
+
+Bouncy Castle bcprov/bcpkix/bcutil 1.81
+Copyright The Legion of the Bouncy Castle Inc. MIT license.
+Source/license: https://www.bouncycastle.org/licence.html
+
+All original carjack / Slipstream, launcher, font, native transport and dependency notices
+remain applicable. The repository retains LICENSE-APACHE and LICENSE-MIT.

@@ -4,7 +4,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
@@ -48,5 +47,6 @@
         </service>
         <provider android:name=".MirrorLogsProvider" android:authorities="${applicationId}.logs"
             android:exported="false" android:grantUriPermissions="true" />
+        <receiver android:name=".MirrorPairingReceiver" android:exported="false" />
     </application>
 </manifest>

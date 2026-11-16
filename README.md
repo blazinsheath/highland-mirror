@@ -1,19 +1,16 @@
-# Highland Mirror preview
+# Highland Mirror preview 3 development
 
-This branch adds a separate Android app for mirroring the phone's actual screen to a CFMOTO
-U10 Pro Highland over wireless CarPlay, using Android screen-sharing permission and optional
-accessibility touch control. **No Shizuku, ADB, Wireless debugging, root or helper APK.**
+One Android APK mirrors the phone to a CFMOTO U10 Pro Highland over wireless CarPlay, with
+Slipstream's customizable app home. A bundled helper restores the previously working
+shell audio capture and automatic Bluetooth identity. **No separate Shizuku or helper app.**
+Android Wireless debugging pairing is required once; debugging must be enabled to start the
+helper again. Screen sharing and optional vehicle touch still use Android approval.
 
-**[Download Highland Mirror 0.1.0 preview 2 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.2/Highland-Mirror-0.1.0-preview.2.apk)** ·
-[Setup and limitations](docs/HIGHLAND-MIRROR.md)
-
-Preview 2 brings back Slipstream's customizable landscape launcher and app shortcuts, simplifies
-Start/Stop setup, recovers the joined Wi-Fi identity from recognizable EUI-64 addresses, and uses
-12345678 as the CFMOTO password fallback when the vehicle supplies none. The APK passed 41
-native media tests, 12 Android geometry/network tests, and package/permission/signature checks.
-Its connection fix still needs physical testing on the Highland. Netflix protected video and
-cellular call audio are not supported. Uninstall Mirror preview 1 once before this signing-key
-transition; future signed updates can retain setup and launcher shortcuts.
+[Setup and limitations](docs/HIGHLAND-MIRROR.md). Preview 3 is being validated; preview 2's
+[APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.2/Highland-Mirror-0.1.0-preview.2.apk)
+remains available but its music capture did not work on the owner's phone. Video worked.
+Keep the phone unlocked and its screen on: locking ends the present screen-sharing backend.
+Protected Netflix video and cellular-call audio are not supported.
 
 This is built over [Christopher Fraser's carjack / Slipstream](https://github.com/cfraz89/carjack).
 The upstream source, history and license notices are retained. The working Shizuku-based
