@@ -1,8 +1,6 @@
 name: Build Highland Mirror
 on:
   workflow_dispatch:
-  push:
-    branches: [highland-link-dev]
 permissions:
   contents: read
 concurrency:
@@ -61,3 +59,4 @@ jobs:
             target/gradle/highlandmirror/test-results/testDebugUnitTest/*.xml
           if-no-files-found: error
           retention-days: 14
+

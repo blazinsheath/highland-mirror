@@ -1,0 +1,70 @@
+name: Migrate Highland Mirror source and signed release
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/migrate-highland-mirror.yml]
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Preserve source history and install usage guide
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp README.md "$RUNNER_TEMP/highland-readme.md"
+          initial_head=$(git rev-parse HEAD)
+          git fetch --no-tags https://github.com/blazinsheath/slipstream-highland.git highland-link-dev
+          test "$(git rev-parse FETCH_HEAD)" = 446a25c06f0eb485d6a8429ddb8a707a60b4a44e
+          git checkout -B migrated FETCH_HEAD
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --allow-unrelated-histories --strategy=ours "$initial_head" -m "Preserve Highland Mirror source history in dedicated private repository"
+          cp docs/HIGHLAND-MIRROR.md docs/DEVELOPMENT-HISTORY.md
+          cp "$RUNNER_TEMP/highland-readme.md" README.md
+          printf '# Highland Mirror setup and support\n\nSee the [usage guide](../README.md) for installation, pairing, audio, touch, Netflix with Rave and troubleshooting.\n\nOlder implementation notes are in [development history](DEVELOPMENT-HISTORY.md); they describe past test status and are not the current usage guide.\n' > docs/HIGHLAND-MIRROR.md
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('docs/DEVELOPMENT-HISTORY.md')
+          p.write_text('> Historical implementation notes. Current instructions and confirmed Rave playback are in README.md. Some older test-status statements below are superseded.\n\n'+p.read_text())
+          PY
+          git rm -r .github/workflows
+          git checkout "$initial_head" -- .github/workflows
+          git add README.md docs .github/workflows
+          git commit -m "Set up Highland Mirror private home, usage guide and build workflow"
+          python3 carjack-android/check-builds.py
+          python3 carjack-android/check-mirror.py
+          git push origin HEAD:main
+      - name: Copy unchanged signed preview 8 APK and verify checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 --output Highland-Mirror-0.1.0-preview.8.apk https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.8/Highland-Mirror-0.1.0-preview.8.apk
+          echo "e830b8c889d3e0eea4f90423f879ad02bd30b7f64dea09e479eaea1b57166d6b  Highland-Mirror-0.1.0-preview.8.apk" > Highland-Mirror-0.1.0-preview.8.apk.sha256
+          sha256sum --check Highland-Mirror-0.1.0-preview.8.apk.sha256
+          cat > release-notes.md <<'NOTES'
+          Highland Mirror preview 8, migrated unchanged to its dedicated private repository.
+
+          Install this APK over your existing Highland Mirror installation to retain pairing and shortcuts. The app ID, version and persistent signing certificate are unchanged. Source history and licenses are preserved.
+
+          Includes phone mirroring, Highland speaker/phone audio switching, vehicle touch and customizable Highland Home. Preview 8 improves remembered vehicle selection and bounds Bluetooth recovery. Stop/Start recovery still needs further physical testing.
+
+          Netflix video and sound were confirmed by the owner on Samsung Galaxy S25 Plus and CFMOTO U10 Pro Highland when played inside the separate Rave app. Native Netflix video may remain black. See README for setup, usage and troubleshooting.
+
+          Original build passed 95 tests. This migration does not change app code or rebuild the APK.
+
+          APK SHA-256: e830b8c889d3e0eea4f90423f879ad02bd30b7f64dea09e479eaea1b57166d6b
+          Certificate SHA-256: d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9
+
+          This private repository and its downloads require an authorized GitHub account.
+          NOTES
+          git -C "$GITHUB_WORKSPACE" rev-parse HEAD > source-commit.txt
+          gh release create v0.1.0-highland-mirror-preview.8 Highland-Mirror-0.1.0-preview.8.apk Highland-Mirror-0.1.0-preview.8.apk.sha256 source-commit.txt --repo "$GITHUB_REPOSITORY" --target "$(cat source-commit.txt)" --title "Highland Mirror 0.1.0-preview.8" --notes-file release-notes.md --prerelease
