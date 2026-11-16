@@ -88,23 +88,25 @@ impl AirPlayConnection {
     pub fn teardown_client(&self) -> catplay_carplay::carplay_tx::AirPlayRtspClient {
         self.audio_transport.client.clone()
     }
-    pub fn teardown_payload(&self, include_audio: bool) -> catplay_carplay::msg::TeardownPayload {
+    pub fn teardown_payload(&self, audio: Option<crate::audio::AudioConfig>) -> catplay_carplay::msg::TeardownPayload {
         use catplay_carplay::msg::{StreamType, TeardownPayload, TeardownStream};
         let info = self.tx.info_cached();
         let mut streams = Vec::new();
         if let Some(display) = info.displays.first() {
             streams.push(TeardownStream::screen(StreamType::Screen, display.uuid.clone()));
         }
-        if include_audio {
-            if let Some(config) = crate::audio::media_config(info) {
-                streams.push(TeardownStream::new(config.stream_type));
-            }
+        if let Some(config) = audio {
+            streams.push(TeardownStream::new(config.stream_type));
         }
         TeardownPayload { streams }
     }
     pub fn media_audio_config(&self) -> Option<crate::audio::AudioConfig> {
         tracing::info!(formats = ?self.tx.info_cached().audio_formats, "Accessory audio formats");
         crate::audio::media_config(self.tx.info_cached())
+    }
+    pub fn compatibility_audio_config(&self) -> Option<crate::audio::AudioConfig> {
+        tracing::info!(formats=?self.tx.info_cached().audio_formats, "Accessory compatibility audio formats");
+        crate::audio::compatibility_config(self.tx.info_cached())
     }
 }
 

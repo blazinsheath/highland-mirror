@@ -98,15 +98,17 @@ fun RemoteAppsRow() {
 @Composable
 fun HighlandAudioRow(onChange: () -> Unit) {
     val context = LocalContext.current
-    val values = listOf("bluetooth", "speakers", "off", "test")
-    val names = listOf("Bluetooth speakers", "Highland speakers (CarPlay)", "Phone speakers", "Speaker test tone (repeats for 30 seconds)")
+    val values = listOf("speakers", "test", "compat_speakers", "compat_test", "off", "bluetooth")
+    val names = listOf("Highland speakers (CarPlay)", "Speaker test tone (30 seconds)",
+        "Highland speakers (compatibility)", "Speaker test tone (compatibility)",
+        "Phone speakers", "Bluetooth speakers")
     val index = values.indexOf(Variant.setting(context, "audio", "speakers")).coerceAtLeast(0)
     var choosing by remember { mutableStateOf(false) }
     ListRow(Leading.Glyph(R.drawable.ic_sl_remote), "Audio", names[index], trailing = { Chevron() }) {
         choosing = true
     }
     if (choosing) {
-        ChoiceDialog("Audio — Bluetooth needs a new connection", names, index, { choosing = false }) {
+        ChoiceDialog("Audio — reconnect when changing speaker routes", names, index, { choosing = false }) {
             Variant.prefs(context).edit().putString("audio", values[it])
                 .putLong("audio_revision", android.os.SystemClock.elapsedRealtimeNanos()).apply()
             choosing = false

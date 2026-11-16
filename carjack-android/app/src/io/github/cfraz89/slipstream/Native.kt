@@ -52,7 +52,7 @@ object Native {
     @JvmStatic
     external fun startSession(
         callbacks: Callbacks, iapFd: Int, name: String?, bluetoothAddress: String?, codec: Int,
-        audioEnabled: Boolean,
+        audioProfile: Int,
     ): Long
 
     @JvmStatic

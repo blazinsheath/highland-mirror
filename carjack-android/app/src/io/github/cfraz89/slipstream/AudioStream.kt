@@ -26,7 +26,7 @@ class AudioStream(private val context: Context, private val session: Long) {
             try {
                 when (Variant.setting(context, "audio", "speakers")) {
                     "bluetooth" -> Unit // Never capture or generate sound in picture-only mode.
-                    "test" -> testTone(sampleRate, channels)
+                    "test", "compat_test" -> testTone(sampleRate, channels)
                     "off" -> testTone(sampleRate, channels, true)
                     else -> capture(sampleRate, channels)
                 }

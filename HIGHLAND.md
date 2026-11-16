@@ -37,6 +37,16 @@ with no CarPlay audio stream. Bluetooth was not a working simultaneous audio rou
 vehicle. Select Speaker test tone before a fresh .6 connection, then Highland speakers (CarPlay)
 for music during the same connection. If silent, export a new log after that test.
 
+The same APK also offers Highland speakers (compatibility) and Speaker test tone (compatibility).
+These choose only an advertised MainAudio/default Opus output, preferring 24 kHz mono and then
+16 kHz mono. Microphone-only and telephony formats are excluded. The runtime encoder and decoder
+are tested with actual tone samples at the selected rate. The compatibility path uses upstream's
+low-latency audio setup rather than the custom AAC MainHighAudio transport. Its narrower mono
+sound is a fallback to test, not an established fix. Changing between normal, compatibility and
+Bluetooth routes requires a fresh connection; switching tone/music within one route stays live.
+Teardown uses the actually selected stream type. The Kotlin/JNI audio-profile parameter is updated
+together in this APK (0=Bluetooth/picture only, 1=normal media, 2=compatibility).
+
 ## Version 0.3.0-highland.5: Bluetooth audio with CarPlay picture
 
 The new Bluetooth speakers option projects only the picture. It disables CarPlay audio SETUP,
@@ -155,7 +165,9 @@ https://github.com/Genymobile/scrcpy/blob/master/doc/audio.md
    These changes between CarPlay sources apply live. Bluetooth mode is retained for other
    configurations but did not work alongside projection on the owner's Highland.
 6. If the tone works but music does not, use Send logs after trying the music app. If the tone
-   is also silent, Send logs captures the advertised formats and audio setup error for diagnosis.
+   is silent, end the session, choose Speaker test tone (compatibility), and start a fresh
+   connection. If that works, choose Highland speakers (compatibility) for music in the same
+   session. Export a log after both routes if silent; it includes route, gain and setup status.
 7. Confirm that ending the session restores normal phone/Bluetooth playback and that reconnecting
    starts a fresh audio stream. Audio settings apply live after the media stream has opened.
 

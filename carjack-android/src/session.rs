@@ -208,6 +208,7 @@ pub struct SessionParams {
     /// Overrides what the accessory's declaration implies.
     pub codec: Option<VideoCodec>,
     pub audio_enabled: bool,
+    pub audio_compatibility: bool,
 }
 
 /// Run a session to its end. `iap` is the app's end of the RFCOMM relay.
@@ -300,7 +301,11 @@ pub async fn run(
     } else {
         VideoCodec::H264
     });
-    *ctl.teardown.lock().unwrap() = Some((conn.teardown_client(), conn.teardown_payload(params.audio_enabled)));
+    let audio_config = if !params.audio_enabled { None }
+        else if params.audio_compatibility { conn.compatibility_audio_config() }
+        else { conn.media_audio_config() };
+    tracing::info!(compatibility=params.audio_compatibility, ?audio_config, "Selected CarPlay audio route");
+    *ctl.teardown.lock().unwrap() = Some((conn.teardown_client(), conn.teardown_payload(audio_config)));
     let view = conn.view.as_ref().map_or((0, 0, conn.width, conn.height), |v| {
         (v.origin_x as u32, v.origin_y as u32, v.width as u32, v.height as u32)
     });
@@ -360,8 +365,7 @@ pub async fn run(
         }
     }));
 
-    let audio = if params.audio_enabled {
-        conn.media_audio_config().map(|config| {
+    let audio = audio_config.map(|config| {
             let ready_platform = platform.clone();
             libcarjack::audio::AudioOutput {
                 config,
@@ -370,8 +374,7 @@ pub async fn run(
                 }),
                 ready: Box::new(move || ready_platform.start_audio(config)),
             }
-        })
-    } else { None };
+        });
     if params.audio_enabled && audio.is_none() {
         tracing::warn!("Accessory did not advertise a supported media playback format");
     }

@@ -187,7 +187,7 @@ pub extern "system" fn Java_io_github_cfraz89_slipstream_Native_startSession(
     name: JString,
     bluetooth_address: JString,
     codec: jint,
-    audio_enabled: jboolean,
+    audio_profile: jint,
 ) -> jlong {
     static NEXT: AtomicI64 = AtomicI64::new(1);
     // SAFETY: the app hands over a socket fd it no longer uses.
@@ -208,7 +208,8 @@ pub extern "system" fn Java_io_github_cfraz89_slipstream_Native_startSession(
             2 => Some(VideoCodec::Hevc),
             _ => None,
         },
-        audio_enabled: audio_enabled != 0,
+        audio_enabled: audio_profile != 0,
+        audio_compatibility: audio_profile == 2,
     };
 
     let handle = NEXT.fetch_add(1, Ordering::Relaxed);
