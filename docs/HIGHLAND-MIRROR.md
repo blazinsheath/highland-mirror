@@ -1,4 +1,4 @@
-# Highland Mirror (preview 5 development)
+# Highland Mirror (preview 5)
 
 One APK for Samsung/Android phone mirroring to the CFMOTO U10 Pro Highland over wireless
 CarPlay. It includes the customizable Slipstream launcher and an owner-paired shell helper.
@@ -8,10 +8,12 @@ selected to recover the audio capture and automatic phone identity used in worki
 ## Setup
 
 1. Install the signed update over the current Highland Mirror app to retain pairing, setup
-   and shortcuts. Preview 5 is being validated; its direct download will be added after release.
+   and shortcuts. **[Direct preview 5 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.5/Highland-Mirror-0.1.0-preview.5.apk)**.
+   APK SHA-256: `f1139b545d18aab01949561ea364af780fe1442c3dc0188d0b3b9326689ffe91`.
    **Already paired? Tap Start. Do not uninstall or clear app data.** Enable Wireless debugging
    if Android turned it off. A new code is only needed for missing or rejected pairing.
-2. End the old Slipstream session. Connect the phone to Wi-Fi. Open Highland Mirror and choose
+2. **First-time setup only:** end the old Slipstream session and connect the phone to Wi-Fi.
+   Open Highland Mirror and choose
    **Set up built-in helper**. If necessary enable Samsung Developer options by tapping
    About phone > Software information > Build number seven times.
 3. Open Developer options > Wireless debugging, enable it, and choose **Pair device with
@@ -52,6 +54,11 @@ closed. A closed stream before readiness remains a real startup failure; excepti
 silently treated as success. Bounded startup output is sanitized into diagnostics, and the
 helper redirects inherited stdout/stderr after sending readiness so a closed launch pipe
 cannot break later playback. Concurrent incoming helper connections are bounded.
+
+Android AudioRecord also resolves its default audio session through Context.getDeviceId().
+The standalone helper now supplies a base with DEVICE_ID_DEFAULT instead of passing a null
+base into the capture wrapper. Shell attribution and the proven capture implementation are
+unchanged.
 
 The log pinpoints the app-side early abort but does not prove the previous helper had already
 started successfully. The readiness change addresses both that false-failure path and early
@@ -117,10 +124,14 @@ New pairing dependencies are pinned: LibADB Android 3.1.1 (Apache-2.0 option), C
 source URLs and replacement/rebuild instructions are bundled under Settings & help >
 Open-source licenses and in app/mirror/assets/licenses. Upstream source/history/notices remain.
 
-Preview 5 adds regression tests for the exact launch-stream failure, readiness markers split
-across packets, genuine premature closure, bounded output and launch-secret redaction. Its
-final build and signature results will be recorded after publication. Physical phone/vehicle
-startup and audio still require confirmation.
+Validation: [41 native + 31 Android tests passed](https://github.com/blazinsheath/slipstream-highland/actions/runs/43915476974),
+including six new readiness/closed-stream/bounded-output/redaction regressions. Existing
+loopback authentication, exact PCM and pairing-recovery tests passed. Package/version and
+permission checks passed; all four arm64 libraries and APK offsets support 16-KB pages.
+Android apksigner independently verifies the final persistent release signature. Physical
+phone/vehicle startup, audio and touch still require confirmation.
+Release source: `ef8a920af010b613dc2cf4b40167e54002ebdc13`. The release also supplies the
+unmodified LGPL SPAKE2 source and exact native submodule for replacement/rebuilding.
 
 Official updates retain release certificate SHA-256:
 `d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9`.
