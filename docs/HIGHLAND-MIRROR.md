@@ -1,4 +1,4 @@
-# Highland Mirror (preview 3 development)
+# Highland Mirror (preview 3)
 
 One APK for Samsung/Android phone mirroring to the CFMOTO U10 Pro Highland over wireless
 CarPlay. It includes the customizable Slipstream launcher and an owner-paired shell helper.
@@ -8,7 +8,8 @@ selected to recover the audio capture and automatic phone identity used in worki
 ## Setup
 
 1. Install the signed update over Highland Mirror preview 2 to retain setup and app shortcuts.
-   Preview 3 is currently being validated; its download will be added after publication.
+   **[Direct preview 3 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.3/Highland-Mirror-0.1.0-preview.3.apk)**.
+   APK SHA-256: `c040b8bbe8873d499a8dff585a0ccdc0c62eeaa96aba9b17469331aabf18da2f`.
 2. End the old Slipstream session. Connect the phone to Wi-Fi. Open Highland Mirror and choose
    **Set up built-in helper**. If necessary enable Samsung Developer options by tapping
    About phone > Software information > Build number seven times.
@@ -68,6 +69,13 @@ New pairing dependencies are pinned: LibADB Android 3.1.1 (Apache-2.0 option), C
 2.5.3, Bouncy Castle 1.81, and transitive SPAKE2 Android 2.2.1 (LGPL-3.0). License texts,
 source URLs and replacement/rebuild instructions are bundled under Settings & help >
 Open-source licenses and in app/mirror/assets/licenses. Upstream source/history/notices remain.
+
+Validation: [41 native + 16 Android tests passed](https://github.com/blazinsheath/slipstream-highland/actions/runs/43891547996).
+Package/version and permission-boundary checks passed. All four arm64 native libraries and
+APK offsets support 16-KB pages. Android apksigner independently verifies the final release
+signature. These checks do not replace a physical pairing/audio/touch test.
+Release source: `5d77c92011cde79b2782fe9b23a05aa0b0f12b8a`. The release also supplies the
+unmodified LGPL SPAKE2 source and exact native submodule for replacement/rebuilding.
 
 Official updates retain release certificate SHA-256:
 `d730db78546f3d88015cf8ef7630d3fc81f49a0f7bd4c53e87348c98c2f6cee9`.

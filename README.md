@@ -1,4 +1,4 @@
-# Highland Mirror preview 3 development
+# Highland Mirror preview 3
 
 One Android APK mirrors the phone to a CFMOTO U10 Pro Highland over wireless CarPlay, with
 Slipstream's customizable app home. A bundled helper restores the previously working
@@ -6,9 +6,10 @@ shell audio capture and automatic Bluetooth identity. **No separate Shizuku or h
 Android Wireless debugging pairing is required once; debugging must be enabled to start the
 helper again. Screen sharing and optional vehicle touch still use Android approval.
 
-[Setup and limitations](docs/HIGHLAND-MIRROR.md). Preview 3 is being validated; preview 2's
-[APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.2/Highland-Mirror-0.1.0-preview.2.apk)
-remains available but its music capture did not work on the owner's phone. Video worked.
+**[Download Highland Mirror 0.1.0 preview 3 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.3/Highland-Mirror-0.1.0-preview.3.apk)**
+[Setup and limitations](docs/HIGHLAND-MIRROR.md) · [57 passing tests](https://github.com/blazinsheath/slipstream-highland/actions/runs/43891547996).
+Install over official preview 2, then pair the built-in helper once. The new audio/helper path
+still needs physical confirmation on the S25 Plus and Highland.
 Keep the phone unlocked and its screen on: locking ends the present screen-sharing backend.
 Protected Netflix video and cellular-call audio are not supported.
 
