@@ -28,6 +28,7 @@ class MirrorApplication : Application() {
         Variant.initializeDiagnostics(this)
         Variant.prefs(this).edit().putBoolean("on", false).putBoolean("stopping", false)
             .putBoolean("streaming", false).putBoolean("video_started", false).putBoolean("input_ready", false)
+            .putBoolean("bluetooth_recovering", false)
             .putString("status", "Ready to connect").apply()
     }
 }
@@ -47,6 +48,8 @@ class StartActivity : Activity() {
     private var phoneId = 0
     private var pendingStart = false
     private var helperStarting = false
+    private var setupGuiding = false
+    private var setupDialog: AlertDialog? = null
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> main.post(::refresh) }
     private val required = arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN,
         Manifest.permission.BLUETOOTH_ADVERTISE, Manifest.permission.NEARBY_WIFI_DEVICES)
@@ -78,7 +81,7 @@ class StartActivity : Activity() {
             startService(Intent(this, SlipstreamService::class.java).setAction(SlipstreamService.ACTION_RETRY))
         }
         button("Highland Home · add your apps") { openHome() }
-        text("Your familiar Slipstream home page, with app shortcuts you can add and arrange. It opens automatically when you start mirroring.", 14f)
+        text("Your Highland home page, with app shortcuts you can add and arrange. It opens automatically when you start mirroring.", 14f)
         text("Audio", 19f)
         audio = RadioGroup(this)
         val vehicle = RadioButton(this).apply { id = View.generateViewId(); text = "Highland speakers" }
@@ -108,6 +111,7 @@ class StartActivity : Activity() {
         button("Bluetooth settings") { openSettings(Settings.ACTION_BLUETOOTH_SETTINGS) }
         button("Wi-Fi settings") { openSettings(Settings.ACTION_WIFI_SETTINGS) }
         text("CFMOTO Wi-Fi connects automatically. Default password: 12345678. A different password supplied by the vehicle is used automatically.", 14f)
+        text("If the vehicle does not reconnect, the app briefly switches phone Bluetooth off and on. Other Bluetooth devices may briefly disconnect too.", 14f)
         button("Advanced Wi-Fi address override") { wifiOverride() }
         button("Launcher music controls") {
             AlertDialog.Builder(this).setTitle("Launcher music controls")
@@ -124,10 +128,10 @@ class StartActivity : Activity() {
             }.show()
         }
         text("How to connect", 20f)
-        text("End the old Slipstream session. Pair the built-in helper once, then tap Start, approve Android screen sharing and accept the vehicle Wi-Fi request. The phone’s Bluetooth identity is detected automatically. No separate Shizuku or helper app is needed.", 14f)
+        text("Tap Start for guided phone setup. After pairing once, tap Start, approve Android screen sharing and accept the vehicle Wi-Fi request. Your phone is detected automatically. Everything is included in Highland Mirror.", 14f)
         text("Touch, swipes and Back/Home connect automatically through the built-in helper. Accessibility is optional and is kept only as a troubleshooting fallback.", 14f)
         text("The home page uses landscape. Other apps follow their phone orientation. Keep the phone unlocked and screen on; locking ends screen sharing. Vehicle touch controls supported apps but cannot unlock the phone. Protected Netflix video and cellular-call audio are not supported.", 14f)
-        text("The built-in helper restores the playback capture used in working Slipstream Highland. Android Wireless debugging must be enabled when starting the helper; Android may turn it off after a restart or network change. Once started, media uses a local connection. This preview still needs a physical vehicle test. Logs contain connection details and numeric audio levels, but no saved phone video or audio.", 14f)
+        text("Wireless debugging must be enabled when starting the connection; Android may turn it off after a restart or network change. Pairing is remembered. Diagnostic logs contain connection details and numeric audio levels, but no saved phone video or audio.", 14f)
         column = mainColumn
         Variant.prefs(this).registerOnSharedPreferenceChangeListener(listener)
         refresh()
@@ -169,7 +173,7 @@ class StartActivity : Activity() {
                 "\n\nA new pairing code is not needed. If automatic connection discovery fails, use the IP address & Port on the main Wireless debugging screen. Its connection port is different from the pairing-code dialog’s port.")
             .setPositiveButton("Retry Start") { _, _ -> pendingStart = true; continueStart() }
             .setNeutralButton("Connection port") { _, _ -> connectionPort() }
-            .setNegativeButton("Wireless debugging") { _, _ -> openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) }
+            .setNegativeButton("Wireless debugging") { _, _ -> openDebuggingSettings() }
             .show()
     }
     private fun connectionPort() {
@@ -192,13 +196,43 @@ class StartActivity : Activity() {
         dialog.show()
     }
     private fun showHelperGuide() {
-        AlertDialog.Builder(this).setTitle("One app · built-in helper")
-            .setMessage("On this Samsung: enable Developer options by tapping Settings → About phone → Software information → Build number seven times.\n\nThen open Developer options → Wireless debugging, turn it on and choose Pair device with pairing code. Keep that dialog open, pull down notifications and enter the six-digit code in the Highland Mirror notification. Return here and tap Start.\n\nPairing is saved in this APK. Wireless debugging may need enabling again after a phone restart. No other app is installed.")
-            .setPositiveButton("Open Developer options") { _, _ ->
-                MirrorHelper.beginPairing(this)
-                openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-            }.setNeutralButton("Manual pairing") { _, _ -> manualPairing() }
-            .setNegativeButton("Close", null).show()
+        setupGuiding = true
+        setupDialog?.dismiss()
+        val step = MirrorSetup.step(false,
+            Settings.Global.getInt(contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1,
+            Settings.Global.getInt(contentResolver, "adb_wifi_enabled", 0) == 1)
+        val title: String
+        val detail: String
+        val button: String
+        when (step) {
+            MirrorSetup.Step.ENABLE_DEVELOPER -> {
+                title = "Phone setup · 1 of 3"; button = "Open phone information"
+                detail = "On Samsung, open Software information, then tap Build number seven times. Enter your phone PIN if Android asks. Return here for the next step.\n\nAndroid requires this one-time authorization for vehicle sound and touch."
+            }
+            MirrorSetup.Step.ENABLE_WIRELESS -> {
+                title = "Phone setup · 2 of 3"; button = "Open debugging settings"
+                detail = "Turn on Wireless debugging and approve your Wi-Fi network. Return here when it is on. Your phone must be connected to Wi-Fi."
+            }
+            else -> {
+                title = "Phone setup · 3 of 3"; button = "Enter pairing code"
+                detail = "Open Wireless debugging → Pair device with pairing code. Keep that dialog open, pull down notifications and reply to Highland Mirror with its six-digit code.\n\nNo address or port is needed. Return here when pairing finishes; setup continues automatically."
+            }
+        }
+        setupDialog = AlertDialog.Builder(this).setTitle(title).setMessage(detail)
+            .setPositiveButton(button) { _, _ ->
+                if (step == MirrorSetup.Step.ENABLE_DEVELOPER) openSettings(Settings.ACTION_DEVICE_INFO_SETTINGS)
+                else { MirrorHelper.beginPairing(this); openDebuggingSettings() }
+            }.setNeutralButton("Manual fallback") { _, _ -> setupGuiding = false; manualPairing() }
+            .setNegativeButton("Later") { _, _ -> setupGuiding = false }
+            .setOnCancelListener { setupGuiding = false }.show()
+    }
+    private fun openDebuggingSettings() {
+        // Supported Developer options entry; Settings may highlight the Wireless debugging row.
+        // OEMs that ignore the highlight still show the correct parent page.
+        try { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+            .putExtra(":settings:fragment_args_key", "toggle_adb_wireless")
+            .putExtra(":settings:show_fragment_args", Bundle().apply { putString(":settings:fragment_args_key", "toggle_adb_wireless") })) }
+        catch (_: android.content.ActivityNotFoundException) { openSettings(Settings.ACTION_SETTINGS) }
     }
     private fun manualPairing() {
         if (MirrorProjection.active) { message("Stop mirroring before pairing the helper."); return }
@@ -242,6 +276,7 @@ class StartActivity : Activity() {
     }
     private fun continueStart() {
         if (!pendingStart || MirrorProjection.active) return
+        if (MirrorHelper.bluetoothResetting) { main.postDelayed({ continueStart() }, 300); return }
         if (required.any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) { requestPermissions(requested, 1); return }
         val adapter = getSystemService(BluetoothManager::class.java).adapter
         if (!adapter.isEnabled) { startActivityForResult(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), 3); return }
@@ -320,6 +355,7 @@ class StartActivity : Activity() {
         start.text = if (running) "Stop" else "Start"
         start.isEnabled = !stopping && !helperStarting
         retry.visibility = if (running && !prefs.getBoolean("video_started", false) && !stopping) View.VISIBLE else View.GONE
+        retry.isEnabled = !prefs.getBoolean("bluetooth_recovering", false)
         val wanted = if (AudioOutputSettings.read(this) == AudioOutputSettings.PHONE) phoneId else vehicleId
         if (audio.checkedRadioButtonId != wanted) audio.check(wanted)
     }
@@ -327,6 +363,14 @@ class StartActivity : Activity() {
         super.onNewIntent(intent); setIntent(intent)
         if (intent.action == MirrorInputProtocol.ACTION_HOME && MirrorProjection.attached) openHome()
     }
-    override fun onResume() { super.onResume(); if (::state.isInitialized) refresh() }
-    override fun onDestroy() { Variant.prefs(this).unregisterOnSharedPreferenceChangeListener(listener); super.onDestroy() }
+    override fun onResume() {
+        super.onResume()
+        if (::state.isInitialized) refresh()
+        if (setupGuiding) {
+            if (Variant.prefs(this).getBoolean("helper_paired", false)) {
+                setupGuiding = false; setupDialog?.dismiss(); pendingStart = true; continueStart()
+            } else showHelperGuide()
+        }
+    }
+    override fun onDestroy() { main.removeCallbacksAndMessages(null); setupDialog?.dismiss(); Variant.prefs(this).unregisterOnSharedPreferenceChangeListener(listener); super.onDestroy() }
 }

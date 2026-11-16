@@ -1,97 +1,11 @@
-# Highland Mirror preview 6
+# Highland Mirror
 
-One Android APK mirrors the phone to a CFMOTO U10 Pro Highland over wireless CarPlay, with
-Slipstream's customizable app home. A bundled helper restores the previously working
-shell audio capture and automatic Bluetooth identity. **No separate Shizuku or helper app.**
-Android Wireless debugging pairing is required once; debugging must be enabled to start the
-helper again. Android still asks for screen sharing and required connection permissions.
+One Android app for phone mirroring, music and touchscreen control on a CFMOTO U10 Pro Highland over wireless CarPlay. Add and arrange your apps on the Highland home page.
 
-[Download Highland Mirror preview 6 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.6/Highland-Mirror-0.1.0-preview.6.apk)
+[Download preview 6](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.6/Highland-Mirror-0.1.0-preview.6.apk) · [Setup and support](docs/HIGHLAND-MIRROR.md)
 
-[Setup and limitations](docs/HIGHLAND-MIRROR.md). Preview 6 makes vehicle touch automatic
-through the already-paired built-in helper. New users no longer need the Accessibility or
-Allow restricted settings steps. The main screen focuses on Start/Stop, Home and the two
-audio choices; setup, logs and optional fallbacks are under Settings & help.
-Install over the current app to keep pairing and shortcuts, then tap Start. All 78 automated
-tests passed and the persistent APK signature was verified. Preview 5 remains the owner's
-working startup/audio baseline; the new automatic-touch path still needs a vehicle test.
-Keep the phone unlocked and its screen on: locking ends the present screen-sharing backend.
-Protected Netflix video and cellular-call audio are not supported.
+Preview 7 is being tested: guided first-time setup, automatic Bluetooth reconnection recovery, and Highland Mirror branding throughout the app.
 
-This is built over [Christopher Fraser's carjack / Slipstream](https://github.com/cfraz89/carjack).
-The upstream source, history and license notices are retained. The working Shizuku-based
-Slipstream Highland app remains on [highland-dev](https://github.com/blazinsheath/slipstream-highland/tree/highland-dev);
-see [HIGHLAND.md](HIGHLAND.md) for its development milestones.
+Install updates over the existing app to keep pairing and shortcuts. Android requires one-time Wireless debugging authorization and screen-sharing approval. Keep the phone unlocked with the screen on. Protected Netflix video and cellular-call audio are unsupported.
 
-The upstream project documentation follows below.
-
-# carjack
-
-Wireless CarPlay for things that aren't iPhones. carjack makes a Linux machine or an Android
-phone look like an iPhone to a CarPlay head unit - a car stereo, a motorcycle dash - and streams
-its own screen to it, with touch and the head unit's buttons coming back.
-
-## Why
-
-carjack started as a way to get better off-road navigation on a CFMOTO 1000MT-X. The bike's dash
-is a CarPlay head unit: it shows only what an iPhone sends it, and CarPlay shows only the apps
-Apple allows on a car screen. carjack puts any app on that screen instead - a proper off-road
-navigation app with GPX routing support, running on an Android phone or a small Linux board.
-
-The Android app, Slipstream, is now where development is focused. I have no need for the Linux app
-currently, so haven't looked at it in a while.
-
-## What's here
-
-| | |
-| --- | --- |
-| [`carjack-linux/`](carjack-linux) | The Linux app: runs an app (Waydroid, say) or your desktop in its own compositor and streams it to the head unit. Built for small boards, packaged as a `.deb`. |
-| [`carjack-android/`](carjack-android) | The Android app, **Slipstream**: turns an Android phone into the head unit's CarPlay source, showing its apps on the head unit's screen. Runs on a stock phone with [Shizuku](https://shizuku.rikka.app/). |
-| [`libcarjack/`](libcarjack) | The shared core: Bluetooth iAP2, the CarPlay session, AirPlay screen streaming. |
-| [`iap2-proto/`](iap2-proto) | iAP2 message encoding and decoding. |
-| [`cuda-dmabuf/`](cuda-dmabuf) | Optional NVIDIA zero-copy encode for the Linux app. |
-| [`docs/`](docs) | Investigation notes: what each capture showed, and where things stand. |
-
-AirPlay pairing and streaming come from [catplay](https://github.com/cfraz89/catplay).
-
-## How it was made
-
-Clean-room. carjack was written by studying packet captures - Bluetooth HCI logs, iAP2 traffic and
-AirPlay sessions between real iPhones and real head units - and working out the protocol from what
-went over the wire. No Apple source, SDKs or accessory documentation were used.
-[`iap2.lua`](iap2.lua) is the Wireshark dissector that came out of it.
-
-## Getting it
-
-### Android (Slipstream)
-
-Known to work on:
-- **Phones:** Pixel 8, Pixel 10
-- **Vehicles:** CFMOTO 1000MT-X
-
-Other phones and head units may well work, but haven't been tried.
-
-It needs [Shizuku](https://shizuku.rikka.app/) installed and running; Slipstream walks you through
-the rest when it opens.
-
-The easiest way to install it and keep it updated is [Obtainium](https://obtainium.imranr.dev/),
-which installs apps straight from GitHub releases:
-
-1. Install Obtainium from its [releases page](https://github.com/ImranR98/Obtainium/releases).
-2. In Obtainium, tap **Add app** and enter `https://github.com/cfraz89/carjack` as the source URL.
-3. Tap **Add**, then **Install**.
-
-Obtainium then checks for new releases and offers each update. To install by hand instead,
-download the APK from the [releases](https://github.com/cfraz89/carjack/releases).
-
-### Linux
-
-See [`carjack-linux/README.md`](carjack-linux/README.md).
-
-## License
-
-Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your
-option.
-
-carjack isn't affiliated with or endorsed by Apple. CarPlay and AirPlay are trademarks of Apple
-Inc.
+Source and dependency attribution are in [open-source notices](carjack-android/app/mirror/assets/licenses/NOTICE.txt), [Apache license](LICENSE-APACHE) and [MIT license](LICENSE-MIT). Original source history and notices are retained.

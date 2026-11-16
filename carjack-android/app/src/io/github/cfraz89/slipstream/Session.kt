@@ -35,6 +35,7 @@ class Session(
         if (key == "audio_revision") handler.post { restartAudio() }
     }
     @Volatile private var ending = false
+    private var finished = false // Access only on the session handler.
     @Volatile private var touch: Touch? = null
     /** Video got as far as starting. */
     @Volatile var streamed = false
@@ -127,9 +128,11 @@ class Session(
         width: Int, height: Int, fps: Int, viewX: Int, viewY: Int, viewWidth: Int,
         viewHeight: Int, hevc: Boolean,
     ) {
+        if (ending) return
         streamed = true
         status("Streaming at ${width}x$height")
         handler.post {
+            if (ending) return@post
             // The back and home bar, where wanted, takes the bottom of the view from the display.
             val bar = NavBar.height(context, viewHeight)
             val displayHeight = viewHeight - bar
@@ -172,8 +175,18 @@ class Session(
     override fun ended(error: String?) {
         ending = true
         Log.i(TAG, "Session ended" + if (error == null) "" else ": $error")
-        status("Session ended" + (if (error == null) "" else " ($error)") + "; waiting for the head unit")
         handler.post {
+            if (finished) return@post
+            if (afterStop == null) status("Session ended" + (if (error == null) "" else " ($error)") + "; waiting for the head unit")
+            finishStop()
+        }
+    }
+
+    /** Idempotent also when native completion arrives after the service stop deadline. */
+    fun finishStop() {
+            if (finished) return
+            finished = true
+            ending = true
             Variant.prefs(context).unregisterOnSharedPreferenceChangeListener(settingsChanged)
             audio?.stop()
             audio = null
@@ -185,6 +198,5 @@ class Session(
             listener(this)
             afterStop?.invoke()
             afterStop = null
-        }
     }
 }

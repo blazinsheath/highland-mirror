@@ -45,6 +45,38 @@ object MirrorHelper {
     @Volatile var ready = false
         private set
     val audio = MirrorHelperAudio()
+    private val resettingBluetooth = java.util.concurrent.atomic.AtomicBoolean(false)
+    val bluetoothResetting get() = resettingBluetooth.get()
+
+    /** Nonblocking for the service/UI. At most one recovery is in flight. */
+    fun cycleBluetooth(context: Context): Boolean {
+        if (!ready) return false
+        if (!resettingBluetooth.compareAndSet(false, true)) return true
+        val app = context.applicationContext
+        Variant.prefs(app).edit().putBoolean("bluetooth_recovering", true)
+            .putString("status", "Refreshing Bluetooth for the vehicle…").apply()
+        work.execute {
+            val ok = try {
+                openSocket().use { client ->
+                    client.soTimeout = 28000
+                    val output = DataOutputStream(client.outputStream)
+                    output.writeInt(MirrorHelperProtocol.VERSION)
+                    output.writeInt(MirrorHelperProtocol.RESET_BLUETOOTH); output.flush()
+                    DataInputStream(client.inputStream).readInt() == MirrorHelperProtocol.OK
+                }
+            } catch (_: Exception) { false }
+            finally { resettingBluetooth.set(false) }
+            Log.i("carjack", "Vehicle Bluetooth recovery completed: success=$ok")
+            val prefs = Variant.prefs(app)
+            val edit = prefs.edit().putBoolean("bluetooth_recovering", false)
+            if (prefs.getBoolean("on", false) && !prefs.getBoolean("stopping", false) && !prefs.getBoolean("video_started", false)) {
+                edit.putString("status", if (ok) "Bluetooth refreshed · reconnecting to the vehicle…"
+                    else "Turn phone Bluetooth off and on, then retry the vehicle connection.")
+            }
+            edit.apply()
+        }
+        return true
+    }
 
     private fun state(context: Context, text: String) {
         Variant.prefs(context).edit().putString("helper_status", text).apply()

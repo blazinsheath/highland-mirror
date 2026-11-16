@@ -65,6 +65,8 @@ class Bluetooth(
     private var probeUntil = 0L
     @Volatile private var running = false
     private val dialled = ConcurrentHashMap.newKeySet<BluetoothSocket>()
+    private val connecting = ConcurrentHashMap.newKeySet<BluetoothSocket>()
+    private val dialInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
     /** Open listening sockets, closed to stop their threads. */
     private val servers = ConcurrentHashMap.newKeySet<BluetoothServerSocket>()
 
@@ -102,6 +104,7 @@ class Bluetooth(
         adapter.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
             override fun onServiceConnected(which: Int, proxy: BluetoothProfile) {
                 try {
+                    if (!running) return
                     for (device in proxy.connectedDevices) {
                         if (lastLinked == null && isTarget(device)) {
                             Log.i(TAG, "Head unit ${device.address} is connected")
@@ -110,8 +113,9 @@ class Bluetooth(
                     }
                 } catch (e: SecurityException) {
                     Log.w(TAG, "Can't list connected devices: ${e.message}")
+                } finally {
+                    adapter.closeProfileProxy(which, proxy)
                 }
-                adapter.closeProfileProxy(which, proxy)
             }
 
             override fun onServiceDisconnected(which: Int) {}
@@ -136,6 +140,10 @@ class Bluetooth(
             }
         }
         servers.clear()
+        for (socket in connecting) closeQuietly(socket)
+        connecting.clear()
+        for (socket in dialled) closeQuietly(socket)
+        dialled.clear()
     }
 
     fun name(): String? = adapter.name
@@ -149,11 +157,12 @@ class Bluetooth(
                 try {
                     adapter.listenUsingRfcommWithServiceRecord(name, uuid).use { server ->
                         servers.add(server)
+                        if (!running) { server.close(); return@use }
                         Log.i(TAG, "Listening for $name")
                         while (running) {
                             val socket = server.accept()
                             Log.i(TAG, "$name connection from ${socket.remoteDevice}")
-                            onAccept(socket)
+                            if (running) onAccept(socket) else closeQuietly(socket)
                         }
                     }
                 } catch (e: IOException) {
@@ -252,19 +261,35 @@ class Bluetooth(
      * channel is handed on as if the head unit had dialled.
      */
     fun dial(device: BluetoothDevice) {
+        if (!running || !dialInProgress.compareAndSet(false, true)) return
         val thread = Thread({
+            var socket: BluetoothSocket? = null
+            var handedOff = false
+            var timeout: Runnable? = null
             Log.i(TAG, "Dialling ${device.address}'s iAP service")
             try {
+                if (!running) return@Thread
                 adapter.cancelDiscovery()
-                val socket = device.createRfcommSocketToServiceRecord(IAP_ACCESSORY)
-                socket.connect()
+                val attempt = device.createRfcommSocketToServiceRecord(IAP_ACCESSORY)
+                socket = attempt
+                connecting.add(attempt)
+                if (!running) return@Thread
+                timeout = Runnable { if (connecting.remove(attempt)) closeQuietly(attempt) }
+                handler.postDelayed(timeout, 12000L)
+                attempt.connect()
+                if (!running || !connecting.remove(attempt)) return@Thread
                 Log.i(TAG, "iAP channel dialled to ${device.address}")
-                dialled.add(socket)
-                onIap(socket)
+                dialled.add(attempt)
+                handedOff = true
+                onIap(attempt)
             } catch (e: IOException) {
                 Log.w(TAG, "Dialling ${device.address} failed: ${e.message}")
             } catch (e: SecurityException) {
                 Log.w(TAG, "Dialling ${device.address} failed: ${e.message}")
+            } finally {
+                timeout?.let(handler::removeCallbacks)
+                socket?.let { connecting.remove(it); if (!handedOff) closeQuietly(it) }
+                dialInProgress.set(false)
             }
         }, "carjack-dial")
         thread.isDaemon = true

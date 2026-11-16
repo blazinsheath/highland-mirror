@@ -1,18 +1,37 @@
-# Highland Mirror (preview 6)
+# Highland Mirror
 
 One APK for Samsung/Android phone mirroring to the CFMOTO U10 Pro Highland over wireless
-CarPlay. It includes the customizable Slipstream launcher and an owner-paired shell helper.
-**There is no separate Shizuku or helper app to install.** This architecture was explicitly
-selected to recover the audio capture and automatic phone identity used in working Slipstream.
+CarPlay. It includes the customizable Highland home page and an owner-paired shell helper.
+**Everything is included in one APK.** The built-in helper supplies vehicle audio, automatic
+phone identification and vehicle touch after the owner authorizes pairing.
 
 [Download the signed preview 6 APK](https://github.com/blazinsheath/slipstream-highland/releases/download/v0.1.0-highland-mirror-preview.6/Highland-Mirror-0.1.0-preview.6.apk).
+
+## Preview 7 improvements (under validation)
+
+First-time Start opens a three-step guide: enable phone developer options, enable Wireless
+debugging, then enter the pairing code from the notification. Each return to the app checks
+progress; saved pairing is retained. Settings opens the relevant system page, with a Wireless
+debugging row highlight where the phone supports it. Android still requires the owner to
+approve debugging; the app cannot enable it silently during installation.
+
+Reconnection now restores the Bluetooth reset missing from the all-in-one version. A known
+bonded vehicle can be retried even when Android missed its connection event. Recovery briefly
+switches the phone's Bluetooth off and on, so watches/headsets may also briefly disconnect.
+Commands are fixed, authenticated and bounded; even an off-state timeout attempts to restore
+Bluetooth. Stop waits for this restoration before the helper exits. Only one dial can run;
+stalled dials time out and old sockets are closed. Late native completion cannot clean up a
+new session. The updated reconnect path still needs a physical vehicle test.
+
+App/help/release branding is Highland Mirror. Required third-party notices remain under
+Open-source licenses. Internal source namespaces and repository URLs retain compatibility.
 
 ## Setup
 
 1. Install the signed update over the current Highland Mirror app to retain pairing, setup
    and shortcuts. **Already paired? Tap Start.** Keep the existing
    pairing and port settings. Enable Wireless debugging again only if Android has turned it off.
-2. **First-time setup only:** end the old Slipstream session and connect the phone to Wi-Fi.
+2. **First-time setup only:** end any other phone-mirroring session and connect the phone to Wi-Fi.
    Open Highland Mirror and tap **Start** for one-time setup, or open
    **Settings & help > Set up phone connection**. If necessary enable Samsung Developer options by tapping
    About phone > Software information > Build number seven times.
@@ -50,7 +69,7 @@ to grant a restricted permission during APK installation.
 
 The authorized shell helper now accepts a fixed input protocol on a separately authenticated
 loopback connection. It uses the same InputManagerGlobal injection APIs as the original
-Slipstream service, targeting the phone's default display. Phone-image coordinate mapping
+original input service, targeting the phone's default display. Phone-image coordinate mapping
 is retained. Touch/key messages are bounded, validated and acknowledged; gesture/key state
 is released on cancellation, connection loss or rotation. Back includes both down and up,
 and vehicle Home returns to the customizable launcher. No input coordinates or text are saved.
@@ -116,7 +135,7 @@ in that ZIP; hardware verification of the corrections is still required.
 
 Preview 2's new device log reached RECORD, video and continuous audio RTP transmission, but
 music stayed on the phone. Its native audio transport is unchanged from physically working
-Slipstream Highland .6. The capture backend was different: ordinary AudioPlaybackCapture
+the earlier working build. The capture backend was different: ordinary AudioPlaybackCapture
 can filter media and does not force phone output away from the local speaker.
 
 Preview 3 shares the exact shell-UID PlaybackCapture source used in that working fork:
@@ -139,7 +158,7 @@ calling are not implemented. A helper does not promise protected-video playback.
 
 Build with `gradle :highlandmirror:testDebugUnitTest :highlandmirror:assembleDebug` using the
 repository's Android toolchain container. Only selected common transport files and the known
-PlaybackCapture implementation are shared. No Shizuku manager/provider classes are included.
+PlaybackCapture implementation are shared. The connection helper is bundled in the APK.
 The manifest requests no system capture, input-injection, log-reading or secure-settings
 permission. Accessibility remains gesture-only, with window retrieval disabled.
 

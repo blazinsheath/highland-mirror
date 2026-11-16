@@ -1,5 +1,5 @@
 Highland Mirror bundles these additional libraries for its own-phone Wireless debugging setup.
-There is no separate Shizuku app or Shizuku service library in this APK.
+The connection helper is included in Highland Mirror.
 
 LibADB Android 3.1.1
 Copyright 2021 Muntashir Al-Islam; ADB discovery includes work by 南宫雪珊.

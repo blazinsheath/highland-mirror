@@ -33,6 +33,7 @@ object MirrorShellMain {
         val owner = AtomicBoolean(false)
         val inputOwner = AtomicReference<MirrorShellInput?>(null)
         val clients = Semaphore(8)
+        val bluetoothLock = Any()
         Thread({ Thread.sleep(30000); if (!owner.get()) exitProcess(0) }, "helper-start-timeout").apply { isDaemon = true; start() }
         try {
             ServerSocket(port, 4, InetAddress.getByName("127.0.0.1")).use { server ->
@@ -70,7 +71,12 @@ object MirrorShellMain {
                                             client.soTimeout = 0
                                             while (input.read() != -1) { }
                                         }
-                                        finally { inputOwner.getAndSet(null)?.close(); playback.stop(); exitProcess(0) }
+                                        finally {
+                                            owner.set(false)
+                                            inputOwner.getAndSet(null)?.close()
+                                            // Let a bounded reset restore Bluetooth before exiting on Stop.
+                                            synchronized(bluetoothLock) { playback.stop(); exitProcess(0) }
+                                        }
                                     }
                                     MirrorHelperProtocol.AUDIO -> {
                                         check(owner.get())
@@ -106,6 +112,11 @@ object MirrorShellMain {
                                                 if (!accepted) break
                                             }
                                         } finally { control.close(); inputOwner.compareAndSet(control, null) }
+                                    }
+                                    MirrorHelperProtocol.RESET_BLUETOOTH -> {
+                                        check(owner.get())
+                                        val ok = synchronized(bluetoothLock) { owner.get() && MirrorBluetoothReset.execute() }
+                                        output.writeInt(if (ok) MirrorHelperProtocol.OK else 1); output.flush()
                                     }
                                     else -> error("Unknown helper command")
                                 }

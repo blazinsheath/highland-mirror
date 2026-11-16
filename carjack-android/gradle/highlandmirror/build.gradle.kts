@@ -24,8 +24,8 @@ android {
         applicationId = "io.github.blazinsheath.highlandmirror"
         minSdk = 34
         targetSdk = 36
-        versionCode = 10006
-        versionName = "0.1.0-preview.6"
+        versionCode = 10007
+        versionName = "0.1.0-preview.7"
         ndk.abiFilters += "arm64-v8a"
     }
     sourceSets["main"].apply {

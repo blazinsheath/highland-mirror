@@ -67,6 +67,7 @@ class SlipstreamService : Service() {
     private lateinit var bluetooth: Bluetooth
     private lateinit var wifi: AccessoryWifi
     private var session: Session? = null
+    @Volatile private var destroying = false
     private var sessionDialled = false
     private var sessionStarted = 0L
     /** Where we can't page, a unit already linked at start gets only the dial grace. */
@@ -109,13 +110,14 @@ class SlipstreamService : Service() {
             // A unit dials iAP only on a fresh link, and may carry it on a channel we dial then
             // too: give it a moment to dial first.
             bluetooth.setOnUnitLinked { unit ->
+                if (destroying) return@setOnUnitLinked
                 // A fresh link: give it the full wait before renewing it.
                 gaveUpOn = null
                 waitingSince = now()
                 offerWait = OFFER_WAIT_MS
                 if (session == null) status("${name(unit)} connected")
                 handler.postDelayed({
-                    if (session == null && !blocked(unit)) {
+                    if (!destroying && session == null && !blocked(unit)) {
                         status("Calling ${name(unit)}")
                         bluetooth.dial(unit)
                     }
@@ -185,6 +187,7 @@ class SlipstreamService : Service() {
 
     /** A fresh start with the head unit given up on: its link renewed. */
     private fun retry() {
+        if (destroying) return
         cyclesLeft = MAX_CYCLES
         val unit = gaveUpOn ?: bluetooth.headUnit()
         gaveUpOn = null
@@ -201,13 +204,14 @@ class SlipstreamService : Service() {
     /** Without a session: find the head unit, and page it until it dials in. */
     private val watch = object : Runnable {
         override fun run() {
+            if (destroying) return
             handler.postDelayed(this, 2000)
             if (session != null) return
             val unit = bluetooth.headUnit()
             if (!Variant.canPage()) {
-                // Nothing to do until the head unit links: its link coming up is the cue. A unit given
-                // up on is left alone until it relinks or the user retries.
-                if (unit != null && bluetooth.isLinked(unit) && gaveUpOn == null) renewLink(unit)
+                // A restarted service can miss the old ACL event, and CarPlay can suppress
+                // ordinary audio profiles. Recover a known bonded unit even without that event.
+                if (unit != null && gaveUpOn == null) renewLink(unit)
                 return
             }
             if (unit == null) {
@@ -252,6 +256,7 @@ class SlipstreamService : Service() {
     }
 
     private fun accept(socket: BluetoothSocket) {
+        if (destroying) { Bluetooth.closeQuietly(socket); return }
         val dialled = bluetooth.wasDialled(socket)
         if (session == null && blocked(socket.remoteDevice)) {
             Bluetooth.closeQuietly(socket)
@@ -332,6 +337,7 @@ class SlipstreamService : Service() {
     }
 
     override fun onDestroy() {
+        destroying = true
         handler.removeCallbacks(watch)
         pendingRelink?.let(handler::removeCallbacks)
         handler.post {
@@ -351,7 +357,7 @@ class SlipstreamService : Service() {
             // Let native TEARDOWN reach the vehicle before dropping its Wi-Fi connection.
             if (stopping == null) cleanup.run() else {
                 stopping.stop { cleanup.run() }
-                handler.postDelayed(cleanup, 1200L)
+                handler.postDelayed({ stopping.finishStop(); cleanup.run() }, 1500L)
             }
         }
         super.onDestroy()

@@ -76,7 +76,7 @@ object Variant {
     fun onLinked(context: Context, linked: Boolean) {
         prefs(context).edit().putBoolean("linked", linked).apply()
     }
-    fun onStopRequested(context: Context) { prefs(context).edit().putBoolean("on", false).apply() }
+    fun onStopRequested(context: Context) { prefs(context).edit().putBoolean("stopping", true).apply() }
     fun openApp(context: Context): PendingIntent = PendingIntent.getActivity(context, 0,
         Intent(context, StartActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
     fun onServiceDestroyed(service: Service) {
@@ -108,7 +108,7 @@ object Variant {
     fun isConnected(device: BluetoothDevice) = true
     fun connect(device: BluetoothDevice) = false
     fun disconnect(device: BluetoothDevice) {}
-    fun cycleBluetooth() = false
+    fun cycleBluetooth() = app?.let { MirrorHelper.cycleBluetooth(it) } ?: false
     fun openAudio(token: Long, sampleRate: Int, channels: Int) =
         MirrorHelper.audio.start(token, sampleRate, channels)
     fun closeAudio(token: Long) = MirrorHelper.audio.stop(token)
