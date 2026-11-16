@@ -32,9 +32,6 @@ jobs:
           printf '# Highland Mirror setup and support\n\nSee the [usage guide](../README.md) for installation, pairing, audio, touch, Netflix with Rave and troubleshooting.\n\nOlder implementation notes are in [development history](DEVELOPMENT-HISTORY.md); they describe past test status and are not the current usage guide.\n' > docs/HIGHLAND-MIRROR.md
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('.github/workflows/highland-mirror.yml')
-          s=p.read_text().replace('branches: [highland-link-dev]', 'branches: [main]')
-          p.write_text(s)
           p=Path('docs/DEVELOPMENT-HISTORY.md')
           p.write_text('> Historical implementation notes. Current instructions and confirmed Rave playback are in README.md. Some older test-status statements below are superseded.\n\n'+p.read_text())
           PY
