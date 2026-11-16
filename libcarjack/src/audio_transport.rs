@@ -31,7 +31,7 @@ impl AudioTransport {
     /// raise a normal setting; only a reported mute receives a quiet -20 dB value.
     pub async fn probe_receiver_volume(&self) {
         let client = self.client.with_timeout(Duration::from_secs(1));
-        let mut query = RtspRequest::with_payload(RtspMethod::GetParameter, "/", b"volume\r\n");
+        let mut query = RtspRequest::with_payload(RtspMethod::GetParameter, "/", &b"volume\r\n"[..]);
         query.set_header(HttpHeader::ContentType, "text/parameters");
         let response = match client.request(query).await {
             Ok(response) => response,
@@ -44,7 +44,7 @@ impl AudioTransport {
         let volume_db = std::str::from_utf8(&response.payload).ok().and_then(parse_volume_db);
         tracing::info!(?volume_db, "Receiver audio volume query result");
         if !volume_db.is_some_and(|db| db <= -100.0) { return; }
-        let mut unmute = RtspRequest::with_payload(RtspMethod::SetParameter, "/", b"volume: -20.000000\r\n");
+        let mut unmute = RtspRequest::with_payload(RtspMethod::SetParameter, "/", &b"volume: -20.000000\r\n"[..]);
         unmute.set_header(HttpHeader::ContentType, "text/parameters");
         match client.request(unmute).await {
             Ok(response) => tracing::info!(status=?response.status, requested_db=-20, "Receiver reported mute; sent quiet unmute request"),
