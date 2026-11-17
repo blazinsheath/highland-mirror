@@ -4,13 +4,19 @@ Mirror your Android phone to a CFMOTO U10 Pro Highland over wireless CarPlay, wi
 
 Tested by the owner with a Samsung Galaxy S25 Plus and CFMOTO U10 Pro Highland. Compatibility with other phones and vehicles is not yet verified.
 
+## ☕ Buy me a coffee
+
+Enjoying Highland Mirror? If this project helps you enjoy your Highland a little more, consider buying me a coffee! Your support helps cover testing and continued development. Completely optional—and always appreciated.
+
+[☕ Buy me a coffee via Venmo](https://venmo.com/code?user_id=2661297892098048001&created=1794921813)
+
 ## Download and update
 
 [Download preview 8 APK](https://github.com/blazinsheath/highland-mirror/releases/download/v0.1.0-highland-mirror-preview.8/Highland-Mirror-0.1.0-preview.8.apk) · [All releases](https://github.com/blazinsheath/highland-mirror/releases)
 
 Download the APK directly; no ZIP extraction is needed. Install it over your current Highland Mirror app to preserve pairing and shortcuts. This is a preview release.
 
-This repository is private: sign in to a GitHub account with access before viewing source or downloading releases. Sharing a link does not grant access.
+This repository is public: anyone can view the source and download release APKs.
 
 ## First-time setup
 
